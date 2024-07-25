@@ -4,7 +4,7 @@ mod export;
 mod objects;
 mod types;
 
-use image::{ImageBuffer, Rgb, RgbImage};
+use image::{ImageBuffer, RgbImage};
 use na::{Point3, Vector3};
 use objects::sphere::Sphere;
 use objects::Hittable;
@@ -64,15 +64,12 @@ fn main() {
 
     // Ray coloring
     let ray_color = |ray: &Ray| -> Color {
-        let mut rec = objects::HitRecord::new();
-        if test.hit(ray, 0.0, f32::INFINITY, &mut rec) {
-            return Color::new(
-                0.5 * (rec.normal.x + 1.0),
-                0.5 * (rec.normal.y + 1.0),
-                0.5 * (rec.normal.z + 1.0),
-            );
-        } else {
-            return Color::new(0.0, 0.0, 0.0);
+        match test.hit(ray, 0.0, f32::INFINITY) {
+            Some(rec) => {
+                let normal = rec.normal;
+                return 0.5_f32 * Color::new(normal.x + 1_f32, normal.y + 1_f32, normal.z + 1_f32);
+            }
+            None => Color::zeros(),
         }
     };
 

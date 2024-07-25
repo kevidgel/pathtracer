@@ -19,7 +19,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         // Solve the quadratic equation
         let oc: Vector3<f32> = self.center - ray.origin;
         let a: f32 = ray.direction.norm_squared();
@@ -30,7 +30,7 @@ impl Hittable for Sphere {
         let discriminant = h * h - a * c;
         if discriminant < 0.0 {
             // Miss
-            return false;
+            return None;
         }
 
         let sqrt_disc = discriminant.sqrt();
@@ -40,14 +40,17 @@ impl Hittable for Sphere {
         if root < t_min || t_max < root {
             root = (h + sqrt_disc) / a;
             if root < t_min || t_max < root {
-                return false;
+                return None;
             }
         }
 
-        rec.t = root;
-        rec.p = ray.at(rec.t);
-        rec.normal = (rec.p - self.center) / self.radius;
+        let rec = HitRecord::new(
+            ray,
+            ray.at(root),
+            (ray.at(root) - self.center) / self.radius,
+            root,
+        );
 
-        return true;
+        return Some(rec);
     }
 }
