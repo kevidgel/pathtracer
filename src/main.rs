@@ -4,11 +4,12 @@ mod export;
 mod objects;
 mod types;
 
+use image::{ImageBuffer, Rgb, RgbImage};
 use na::{Point3, Vector3};
 use objects::sphere::Sphere;
 use objects::Hittable;
 use std::cmp;
-use types::color::Color;
+use types::color::{Color, ColorOps};
 use types::ray::Ray;
 
 fn main() {
@@ -59,9 +60,8 @@ fn main() {
 
     let pixel00_loc = viewport_upper_left + 0.5_f32 * pixel_delta_u + 0.5_f32 * pixel_delta_v;
 
-    println!("P3\n{} {}\n255", image_width, image_height);
-
     let test = Sphere::new(Point3::new(0_f32, 0_f32, -1_f32), 0.5_f32);
+
     // Ray coloring
     let ray_color = |ray: &Ray| -> Color {
         let mut rec = objects::HitRecord::new();
@@ -76,17 +76,19 @@ fn main() {
         }
     };
 
-    for j in 0..image_height {
-        for i in 0..image_width {
-            let pixel_center =
-                pixel00_loc + (i as f32) * pixel_delta_u + (j as f32) * pixel_delta_v;
-            let ray_direction = pixel_center - camera_center;
-            let ray = Ray::new(camera_center, ray_direction);
+    // Image generation
+    let mut buffer: RgbImage = ImageBuffer::new(image_width, image_height);
 
-            let pixel_color = ray_color(&ray);
-            export::write_color(&pixel_color);
-        }
-    }
+    buffer.enumerate_pixels_mut().for_each(|(x, y, pixel)| {
+        let pixel_center = pixel00_loc + (x as f32) * pixel_delta_u + (y as f32) * pixel_delta_v;
+        let ray_direction = pixel_center - camera_center;
+        let ray = Ray::new(camera_center, ray_direction);
+
+        let pixel_color = ray_color(&ray);
+        *pixel = pixel_color.to_rgb()
+    });
+
+    buffer.save("test.png").unwrap();
 
     log::info!(target: "pt", "Done.");
 }
