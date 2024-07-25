@@ -1,5 +1,3 @@
-extern crate nalgebra as na;
-
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};

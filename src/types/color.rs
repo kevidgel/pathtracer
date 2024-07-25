@@ -1,6 +1,5 @@
-extern crate nalgebra as na;
-
 use image::Rgb;
+
 pub type Color = na::Vector3<f32>;
 
 pub trait ColorOps {

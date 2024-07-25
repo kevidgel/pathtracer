@@ -1,5 +1,3 @@
-extern crate nalgebra as na;
-
 use na::{Point3, Vector3};
 
 #[derive(Clone, Copy, Debug)]
