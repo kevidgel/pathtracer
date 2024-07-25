@@ -1,9 +1,12 @@
 extern crate nalgebra as na;
 mod config;
 mod export;
+mod objects;
 mod types;
 
 use na::{Point3, Vector3};
+use objects::sphere::Sphere;
+use objects::Hittable;
 use std::cmp;
 use types::color::Color;
 use types::ray::Ray;
@@ -20,6 +23,7 @@ fn main() {
     };
 
     // Image
+    // TODO: Surely there is a better way to do this
     let aspect_ratio_vec: Vec<f32> = match cfg.get_array("aspect_ratio") {
         Ok(aspect_ratio) => aspect_ratio
             .iter()
@@ -57,15 +61,21 @@ fn main() {
 
     println!("P3\n{} {}\n255", image_width, image_height);
 
+    let test = Sphere::new(Point3::new(0_f32, 0_f32, -1_f32), 0.5_f32);
     // Ray coloring
     let ray_color = |ray: &Ray| -> Color {
-        let unit_direction = ray.direction.normalize();
-        let a = 0.5_f32 * (unit_direction.y + 1.0);
-
-        (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
+        let mut rec = objects::HitRecord::new();
+        if test.hit(ray, 0.0, f32::INFINITY, &mut rec) {
+            return Color::new(
+                0.5 * (rec.normal.x + 1.0),
+                0.5 * (rec.normal.y + 1.0),
+                0.5 * (rec.normal.z + 1.0),
+            );
+        } else {
+            return Color::new(0.0, 0.0, 0.0);
+        }
     };
 
-    let mut c = 0;
     for j in 0..image_height {
         for i in 0..image_width {
             let pixel_center =
@@ -75,7 +85,6 @@ fn main() {
 
             let pixel_color = ray_color(&ray);
             export::write_color(&pixel_color);
-            c += 1;
         }
     }
 
