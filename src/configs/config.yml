@@ -1,0 +1,4 @@
+version: 0.0
+aspect_ratio: [16, 9]
+image_width: 400
+viewport_height: 2.0
