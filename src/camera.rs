@@ -1,7 +1,7 @@
 use nalgebra::{Point3, Vector3};
 use std::cmp;
 use rayon::iter::ParallelIterator;
-use crate::{types::{color::{Color, ColorOps}, ray::Ray, sampler::SphereSampler}, Hittable, HittableObjects};
+use crate::{types::{color::{Color, ColorOps}, ray::Ray}, Hittable, HittableObjects};
 use image::{ImageBuffer, RgbImage};
 use crate::types::sampler::{SquareSampler, Sampler};
 use rand::rngs::ThreadRng;
@@ -79,7 +79,7 @@ impl Camera {
     }
 
     fn ray_color(&self, rng: &mut ThreadRng, ray: &Ray, objects: &HittableObjects, max_depth: u32) -> Color {
-        if max_depth <= 0 {
+        if max_depth == 0 {
             return Color::zeros();
         }
         match objects.hit(ray, 0.001, f32::INFINITY) {

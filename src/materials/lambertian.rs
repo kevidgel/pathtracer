@@ -3,7 +3,6 @@ use crate::types::{ray::Ray, color::Color};
 use crate::objects::HitRecord;
 use crate::types::sampler::{SphereSampler, Sampler};
 use rand::rngs::ThreadRng;
-use na::Vector3;
 
 pub struct Lambertian {
     albedo: Color,
