@@ -5,6 +5,7 @@ use crate::{types::{color::{Color, ColorOps}, ray::Ray}, Hittable, HittableObjec
 use image::{ImageBuffer, RgbImage};
 use crate::types::sampler::{SquareSampler, Sampler};
 use rand::rngs::ThreadRng;
+use indicatif::ParallelProgressIterator;
 
 
 pub struct Camera {
@@ -31,7 +32,7 @@ impl Camera {
         let viewport_v = Vector3::new(0_f32, -viewport_height, 0_f32);
         let pixel_du = viewport_u / (image_width as f32);
         let pixel_dv = viewport_v / (image_height as f32);
-        let spp: u32 = 100;
+        let spp: u32 = 32;
 
         let viewport_upper_left = center
             - viewport_u / 2_f32
@@ -56,8 +57,9 @@ impl Camera {
     pub fn render(&self, objects: &HittableObjects) -> RgbImage {
         // Image generation
         let mut buffer: RgbImage = ImageBuffer::new(self.image_width, self.image_height);
+        let len = buffer.len() as u64;
         // CPU parallelization
-        buffer.par_enumerate_pixels_mut().for_each(|(u, v, pixel)| {
+        buffer.par_enumerate_pixels_mut().progress_count(len).for_each(|(u, v, pixel)| {
             let mut rng = rand::thread_rng();
             let pixel_color: Color = (0..self.spp).map(|_| -> Color {
                 let ray = self.get_ray(&mut rng, u as f32, v as f32);

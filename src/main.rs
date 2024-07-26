@@ -14,7 +14,9 @@ use objects::{Hittable, HittableObjects};
 use camera::Camera;
 
 fn main() {
-    env_logger::init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
 
     let cfg = match config::read_config("config.yml") {
         Ok(cfg) => cfg,
