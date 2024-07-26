@@ -2,22 +2,39 @@ use crate::materials::Material;
 use crate::types::{ray::Ray, color::Color};
 use crate::objects::HitRecord;
 use crate::types::sampler::{SphereSampler, Sampler};
-use rand::Rng;
+use rand::rngs::ThreadRng;
 use na::Vector3;
 
 pub struct Lambertian {
     albedo: Color,
 }
 
+impl Lambertian {
+    pub fn new(albedo: Color) -> Self {
+        Self { albedo }
+    }
+}
+
 impl Material for Lambertian {
-    fn scatter(&self, rng: Option<&mut impl Rng>, _ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)> {
+    fn scatter(&self, rng: Option<&mut ThreadRng>, _ray_in: &Ray, rec: &HitRecord) -> (Color, Ray) {
         let sampler = SphereSampler::unit();
 
-        let mut scatter_direction = rec.normal() + sampler.sample(rng);
+        let rng = match rng {
+            Some(rng) => rng,
+            None => &mut rand::thread_rng()
+        };
 
-        let scattered = Ray::new(rec.p, scatter_direction);
+        // Scatter
+        let scatter_direction = rec.normal() + sampler.sample(rng).normalize();
+
+        let scattered: Ray = match scatter_direction.x < f32::EPSILON && scatter_direction.y < f32::EPSILON && scatter_direction.z < f32::EPSILON {
+            true => Ray::new(rec.p(), rec.normal()),
+            false => Ray::new(rec.p(), scatter_direction)
+        };
+
+        // Attenuation
         let attenuation = self.albedo;
 
-        Some((attenuation, scattered))
+        (attenuation, scattered)
     }
 }

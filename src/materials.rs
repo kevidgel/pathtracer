@@ -2,8 +2,8 @@ pub mod lambertian;
 
 use crate::types::{ray::Ray, color::Color};
 use crate::objects::HitRecord;
-use rand::Rng;
+use rand::rngs::ThreadRng;
 
 pub trait Material {
-    fn scatter(&self, rng: Option<&mut impl Rng>, ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)>;   
+    fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> (Color, Ray);   
 }

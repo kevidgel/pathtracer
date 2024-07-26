@@ -14,12 +14,13 @@ pub struct HitRecord {
 }
 
 impl HitRecord {
-    pub fn new(ray: &Ray, p: Point3<f32>, normal: Vector3<f32>, t: f32) -> HitRecord {
+    pub fn new(ray: &Ray, p: Point3<f32>, normal: Vector3<f32>, t: f32, material: Option<Arc<dyn Material + Sync + Send>>) -> HitRecord {
         let mut rec: HitRecord = HitRecord {
             p,
             normal,
             t,
             front_face: false,
+            material,
         };
 
         rec.set_face_normal(ray, normal);
@@ -43,6 +44,10 @@ impl HitRecord {
         self.front_face
     }
 
+    pub fn material(&self) -> Option<Arc<dyn Material + Sync + Send>> {
+        self.material.clone()
+    }
+    
     pub fn set_face_normal(&mut self, ray: &Ray, outward_normal: na::Vector3<f32>) {
         // Flip the normal if the ray is inside the object
         self.front_face = ray.direction.dot(&outward_normal) < 0.0;
@@ -57,6 +62,7 @@ impl HitRecord {
 // We love traits !!!
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
+    fn mat(&self) -> Option<Arc<dyn Material + Sync + Send>>;
 }
 
 // All of our things that are hittable
@@ -92,5 +98,9 @@ impl Hittable for HittableObjects {
             }
         }
         rec
+    }
+
+    fn mat(&self) -> Option<Arc<dyn Material + Sync + Send>> {
+        None
     }
 }

@@ -42,8 +42,10 @@ fn main() {
     log::info!(target: "pt", "Building scene...");
     let mut objects = HittableObjects::new();
 
-    let test1 = Sphere::new(Point3::new(0_f32, 0_f32, -1_f32), 0.5_f32);
-    let test2 = Sphere::new(Point3::new(0_f32, -100.5_f32, -1_f32), 100_f32);
+    let lamb: Arc<dyn materials::Material + Send + Sync> = Arc::new(materials::lambertian::Lambertian::new(types::color::Color::new(0.5_f32, 0.5_f32, 0.5_f32)));
+
+    let test1 = Sphere::new(Point3::new(0_f32, 0_f32, -1_f32), 0.5_f32, Arc::clone(&lamb));
+    let test2 = Sphere::new(Point3::new(0_f32, -100.5_f32, -1_f32), 100_f32, Arc::clone(&lamb));
 
     objects.add(Arc::new(test1));
     objects.add(Arc::new(test2));

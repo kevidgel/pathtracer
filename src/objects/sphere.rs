@@ -1,18 +1,20 @@
+use std::sync::Arc;
 use crate::objects::Hittable;
+use crate::materials::Material;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};
 
 use super::HitRecord;
 
-#[derive(Clone, Copy, Debug)]
 pub struct Sphere {
-    pub center: Point3<f32>,
-    pub radius: f32,
+    center: Point3<f32>,
+    radius: f32,
+    mat: Arc<dyn Material + Send + Sync>,
 }
 
 impl Sphere {
-    pub fn new(center: Point3<f32>, radius: f32) -> Self {
-        Self { center, radius }
+    pub fn new(center: Point3<f32>, radius: f32, mat: Arc<dyn Material + Send + Sync>) -> Self {
+        Self { center, radius , mat }
     }
 }
 
@@ -47,8 +49,13 @@ impl Hittable for Sphere {
             ray.at(root),
             (ray.at(root) - self.center) / self.radius,
             root,
+            Some(self.mat.clone()),
         );
 
         Some(rec)
+    }
+
+    fn mat(&self) -> Option<Arc<dyn Material + Sync + Send>> {
+        Some(self.mat.clone())
     }
 }

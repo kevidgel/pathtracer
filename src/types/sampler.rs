@@ -35,8 +35,20 @@ impl SphereSampler {
     pub fn new(center: Vector3<f32>, radius: f32) -> Self {
         Self { center, radius }
     }
+
     pub fn unit() -> Self {
         Self { center: Vector3::new(0.0, 0.0, 0.0), radius: 1.0 }
+    }
+
+    pub fn sample_on_hemisphere(&self, rng: &mut impl Rng, normal: &Vector3<f32>) -> Vector3<f32> {
+        let sample = self.sample(rng);
+
+        if normal.dot(&sample) > 0.0 {
+            sample
+        }
+        else {
+            -sample
+        }
     }
 }
 
@@ -49,7 +61,7 @@ impl Sampler<Vector3<f32>> for SphereSampler {
 
         let sample: Vector3<f32> = Vector3::new(x, y, z);
         if sample.norm() < 1.0 {
-            sample.normalize()
+            sample
         } else {
             self.sample(rng)
         }
