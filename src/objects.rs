@@ -1,14 +1,16 @@
 pub mod sphere;
 
+use std::sync::Arc;
 use crate::types::ray::Ray;
+use crate::materials::Material;
 use na::{Point3, Vector3};
 
-#[derive(Debug)]
 pub struct HitRecord {
     p: Point3<f32>,
     normal: Vector3<f32>,
     t: f32,
     front_face: bool,
+    material: Option<Arc<dyn Material + Sync + Send>>,
 }
 
 impl HitRecord {
@@ -22,23 +24,23 @@ impl HitRecord {
 
         rec.set_face_normal(ray, normal);
 
-        return rec;
+        rec
     }
 
     pub fn p(&self) -> Point3<f32> {
-        return self.p;
+        self.p
     }
 
     pub fn normal(&self) -> Vector3<f32> {
-        return self.normal;
+        self.normal
     }
 
     pub fn t(&self) -> f32 {
-        return self.t;
+        self.t
     }
 
     pub fn front_face(&self) -> bool {
-        return self.front_face;
+        self.front_face
     }
 
     pub fn set_face_normal(&mut self, ray: &Ray, outward_normal: na::Vector3<f32>) {
@@ -61,15 +63,15 @@ pub trait Hittable {
 pub struct HittableObjects {
     // TODO: replace with kd tree
     // TODO: idk if we should box this 
-    objs: Vec<Box<dyn Hittable>>,
+    objs: Vec<Arc<dyn Hittable + Sync + Send>>,
 }
 
 impl HittableObjects {
     pub fn new() -> HittableObjects {
-        return HittableObjects { objs: Vec::new() };
+        HittableObjects { objs: Vec::new() }
     }
 
-    pub fn add(&mut self, obj: Box<dyn Hittable>) {
+    pub fn add(&mut self, obj: Arc<dyn Hittable + Sync + Send>) {
         self.objs.push(obj);
     }
 
@@ -89,6 +91,6 @@ impl Hittable for HittableObjects {
                 rec = Some(hit);
             }
         }
-        return rec;
+        rec
     }
 }

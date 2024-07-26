@@ -49,6 +49,6 @@ impl Hittable for Sphere {
             root,
         );
 
-        return Some(rec);
+        Some(rec)
     }
 }

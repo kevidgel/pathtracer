@@ -6,8 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clippy = "0.0.302"
 config = "0.14.0"
 env_logger = "0.11.4"
 image = "0.25.2"
 log = "0.4.22"
 nalgebra = "0.33.0"
+rand = "0.8.5"
+rayon = "1.10.0"
