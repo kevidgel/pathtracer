@@ -26,6 +26,34 @@ impl Sampler<(f32, f32)> for SquareSampler {
     }
 }
 
+pub struct DiskSampler {
+    center: (f32, f32),
+    radius: f32,
+}
+
+impl DiskSampler {
+    pub fn new(center: (f32, f32), radius: f32) -> Self {
+        Self { center, radius }
+    }
+
+    pub fn unit() -> Self {
+        Self { center: (0.0, 0.0), radius: 1.0 }
+    }
+}
+
+impl Sampler<(f32, f32)> for DiskSampler {
+    fn sample(&self, rng: &mut impl Rng) -> (f32, f32) {
+        let x = rng.gen_range(self.center.0 - self.radius..self.center.0 + self.radius);
+        let y = rng.gen_range(self.center.1 - self.radius..self.center.1 + self.radius);
+
+        if x * x + y * y < self.radius * self.radius {
+            (x, y)
+        } else {
+            self.sample(rng)
+        }
+    }
+}
+
 pub struct SphereSampler {
     center: Vector3<f32>,
     radius: f32,
@@ -59,7 +87,7 @@ impl Sampler<Vector3<f32>> for SphereSampler {
         let y = rng.gen_range(-1.0..1.0);
         let z = rng.gen_range(-1.0..1.0);
 
-        let sample: Vector3<f32> = Vector3::new(x, y, z);
+        let sample: Vector3<f32> = Vector3::new(x, y, z) * self.radius + self.center;
         if sample.norm() < 1.0 {
             sample
         } else {

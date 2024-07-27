@@ -10,3 +10,7 @@ pub fn read_config(config_path: &str) -> Result<Config> {
 
     Ok(cfg)
 }
+
+pub trait FromConfig {
+    fn build(cfg: Config) -> Self;
+}

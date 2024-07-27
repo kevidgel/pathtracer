@@ -48,7 +48,7 @@ impl HitRecord {
         self.material.clone()
     }
     
-    pub fn set_face_normal(&mut self, ray: &Ray, outward_normal: na::Vector3<f32>) {
+    fn set_face_normal(&mut self, ray: &Ray, outward_normal: Vector3<f32>) {
         // Flip the normal if the ray is inside the object
         self.front_face = ray.direction.dot(&outward_normal) < 0.0;
         self.normal = if self.front_face {

@@ -1,7 +1,7 @@
-use nalgebra::{Point3, Vector3};
+use na::{Point3, Vector3};
 use std::cmp;
-use rayon::iter::ParallelIterator;
-use crate::{types::{color::{Color, ColorOps}, ray::Ray}, Hittable, HittableObjects};
+use rayon::iter::{FoldChunks, ParallelIterator};
+use crate::{types::{color::{Color, ColorOps}, ray::Ray, sampler::DiskSampler}, Hittable, HittableObjects};
 use image::{ImageBuffer, RgbImage};
 use crate::types::sampler::{SquareSampler, Sampler};
 use rand::rngs::ThreadRng;
@@ -10,41 +10,63 @@ use indicatif::ParallelProgressIterator;
 
 pub struct Camera {
     aspect_ratio: f32,
+    vfov: f32,
+    vup: Vector3<f32>,
     image_width: u32,
     image_height: u32,
+    defocus_angle: f32,
+    defocus_disk_u: Vector3<f32>,
+    defocus_disk_v: Vector3<f32>,
     focal_length: f32,
     center: Point3<f32>,
     pixel00: Point3<f32>,
     pixel_du: Vector3<f32>,
     pixel_dv: Vector3<f32>,
+    
     spp: u32,
 }
 
 impl Camera {
-    pub fn new(aspect_ratio : f32, image_width: u32) -> Self {
+    pub fn new(aspect_ratio : f32, image_width: u32, vfov: f32, look_from: Point3<f32>, look_at: Point3<f32>, focal_length: f32, defocus_angle: f32, spp: u32) -> Self {
         let image_height = cmp::max(1_u32, (image_width as f32 / aspect_ratio) as u32);
-        let viewport_height = 2.0;
-        let viewport_width = viewport_height * (image_width as f32 / image_height as f32);
-        let focal_length = 1.0;
-        let center = Point3::new(0_f32, 0_f32, 0_f32);
+        let theta = vfov.to_radians();
+        let h = (theta / 2_f32).tan();
+        let vup = Vector3::new(0_f32, 1_f32, 0_f32);
+        let center = look_from;
 
-        let viewport_u = Vector3::new(viewport_width, 0_f32, 0_f32);
-        let viewport_v = Vector3::new(0_f32, -viewport_height, 0_f32);
+        let viewport_height = 2.0 * h * focal_length;
+        let viewport_width = viewport_height * (image_width as f32 / image_height as f32);
+
+        let w = (look_from - look_at).normalize();
+        let u = vup.cross(&w).normalize();
+        let v = w.cross(&u);
+
+        let viewport_u = viewport_width * u;
+        let viewport_v = viewport_height * -v;
+
         let pixel_du = viewport_u / (image_width as f32);
         let pixel_dv = viewport_v / (image_height as f32);
-        let spp: u32 = 32;
 
         let viewport_upper_left = center
             - viewport_u / 2_f32
             - viewport_v / 2_f32
-            - Vector3::new(0_f32, 0_f32, focal_length);
+            - focal_length * w;
 
         let pixel00 = viewport_upper_left + 0.5_f32 * pixel_du + 0.5_f32 * pixel_dv;
 
+        let defocus_radius =  focal_length * (0.5 * (defocus_angle / 2.0).to_radians()).tan();
+        let defocus_disk_u = u * defocus_radius;
+        let defocus_disk_v = v * defocus_radius;
+
         Self {
             aspect_ratio,
+            vfov,
+            vup,
             image_width,
             image_height,
+            defocus_angle,
+            defocus_disk_u,
+            defocus_disk_v,
             focal_length,
             center,
             pixel00,
@@ -63,7 +85,7 @@ impl Camera {
             let mut rng = rand::thread_rng();
             let pixel_color: Color = (0..self.spp).map(|_| -> Color {
                 let ray = self.get_ray(&mut rng, u as f32, v as f32);
-                self.ray_color(&mut rng, &ray, objects, 8)
+                self.ray_color(&mut rng, &ray, objects, 16)
             }).sum::<Color>() / self.spp as f32;
 
             *pixel = pixel_color.to_rgb();
@@ -74,10 +96,17 @@ impl Camera {
 
     fn get_ray(&self, rng: &mut ThreadRng, u: f32, v: f32) -> Ray {
         let sampler = SquareSampler::new((0.0, 0.0), 0.5);
-        let (offset_u, offset_v)= sampler.sample(rng);
+        let disk_sampler = DiskSampler::unit();
+
+        // ray_center 
+        let (disk_offset_u, disk_offset_v) = disk_sampler.sample(rng);
+        let ray_center = if self.defocus_angle <= 0.0 { self.center } else { self.center + disk_offset_u * self.defocus_disk_u + disk_offset_v * self.defocus_disk_v };
+
+        // ray_direction
+        let (offset_u, offset_v) = sampler.sample(rng);
         let pixel_center = self.pixel00 + (u + offset_u) * self.pixel_du + (v + offset_v) * self.pixel_dv;
-        let ray_direction = pixel_center - self.center;
-        Ray::new(self.center, ray_direction)
+        let ray_direction = pixel_center - ray_center;
+        Ray::new(ray_center, ray_direction)
     }
 
     fn ray_color(&self, rng: &mut ThreadRng, ray: &Ray, objects: &HittableObjects, max_depth: u32) -> Color {
