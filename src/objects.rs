@@ -6,21 +6,30 @@ use crate::materials::Material;
 use na::{Point3, Vector3};
 
 pub struct HitRecord {
+    // Normal stuff
     p: Point3<f32>,
     normal: Vector3<f32>,
     t: f32,
     front_face: bool,
+
+    // Material
     material: Option<Arc<dyn Material + Sync + Send>>,
+
+    // Texture
+    u: f32,
+    v: f32,
 }
 
 impl HitRecord {
-    pub fn new(ray: &Ray, p: Point3<f32>, normal: Vector3<f32>, t: f32, material: Option<Arc<dyn Material + Sync + Send>>) -> HitRecord {
+    pub fn new(ray: &Ray, p: Point3<f32>, normal: Vector3<f32>, t: f32, material: Option<Arc<dyn Material + Sync + Send>>, u: f32, v: f32) -> HitRecord {
         let mut rec: HitRecord = HitRecord {
             p,
             normal,
             t,
             front_face: false,
             material,
+            u,
+            v
         };
 
         rec.set_face_normal(ray, normal);
@@ -46,6 +55,14 @@ impl HitRecord {
 
     pub fn material(&self) -> Option<Arc<dyn Material + Sync + Send>> {
         self.material.clone()
+    }
+
+    pub fn u(&self) -> f32 {
+        self.u
+    }   
+
+    pub fn v(&self) -> f32 {
+        self.v
     }
     
     fn set_face_normal(&mut self, ray: &Ray, outward_normal: Vector3<f32>) {

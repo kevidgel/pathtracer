@@ -1,16 +1,22 @@
 
-toy project to learn rust
+# pathtracer
+
+Toy project to learn rust
+
+![cool render](day3.png)
+Current progress
 
 TODO: 
-
-- support loading materials, objects from config files
-- easier camera params
+- Support loading/writing materials, objects, etc from config files
 
 
-TODO TODO: 
-
+TODO LATER: 
 - gui
 - make faster
-- add MESH
+- ADD MESHES
+
+TODO LATER LATER:
+- tests haha
+
 
 [_Ray Tracing: The Next Week_](https://raytracing.github.io/books/RayTracingTheNextWeek.html)

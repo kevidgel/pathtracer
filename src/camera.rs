@@ -7,6 +7,16 @@ use crate::types::sampler::{SquareSampler, Sampler};
 use rand::rngs::ThreadRng;
 use indicatif::ParallelProgressIterator;
 
+pub struct CameraConfig {
+    pub aspect_ratio : f32,
+    pub image_width: u32,
+    pub vfov: f32,
+    pub look_from: (f32, f32, f32),
+    pub look_at: (f32, f32, f32),
+    pub focal_length: f32,
+    pub defocus_angle: f32,
+    pub spp: u32
+}
 
 pub struct Camera {
     aspect_ratio: f32,
@@ -27,6 +37,10 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn from_config(cfg: &CameraConfig) -> Self {
+        Self::new(cfg.aspect_ratio, cfg.image_width, cfg.vfov, Point3::new(cfg.look_from.0, cfg.look_from.1, cfg.look_from.2), Point3::new(cfg.look_at.0, cfg.look_at.1, cfg.look_at.2), cfg.focal_length, cfg.defocus_angle, cfg.spp)
+    }
+
     pub fn new(aspect_ratio : f32, image_width: u32, vfov: f32, look_from: Point3<f32>, look_at: Point3<f32>, focal_length: f32, defocus_angle: f32, spp: u32) -> Self {
         let image_height = cmp::max(1_u32, (image_width as f32 / aspect_ratio) as u32);
         let theta = vfov.to_radians();

@@ -16,6 +16,12 @@ impl Sphere {
     pub fn new(center: Point3<f32>, radius: f32, mat: Option<Arc<dyn Material + Send + Sync>>) -> Self {
         Self { center, radius , mat }
     }
+
+    fn get_uv(&self, p: &Vector3<f32>) -> (f32, f32) {
+        let theta = (-p.y).acos();
+        let phi = f32::atan2(-p.z, p.x) + std::f32::consts::PI;
+        (phi / (2.0 * std::f32::consts::PI), theta / std::f32::consts::PI)
+    }
 }
 
 impl Hittable for Sphere {
@@ -44,12 +50,19 @@ impl Hittable for Sphere {
             }
         }
 
+        // Get the normal
+        let outward_normal = (ray.at(root) - self.center) / self.radius;
+        let (u, v) = self.get_uv(&outward_normal);
+
+        // Hit
         let rec = HitRecord::new(
             ray,
             ray.at(root),
-            (ray.at(root) - self.center) / self.radius,
+            outward_normal,
             root,
             self.mat.clone(),
+            u,
+            v
         );
 
         Some(rec)

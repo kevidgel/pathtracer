@@ -1,16 +1,24 @@
 use super::Material;
+use crate::textures::Texture;
+use crate::types::color::ColorOps;
 use crate::types::{ray::Ray, color::Color};
 use crate::objects::HitRecord;
 use crate::types::sampler::{SphereSampler, Sampler};
 use rand::rngs::ThreadRng;
+use std::sync::Arc;
+use crate::textures::Solid;
 
 pub struct Lambertian {
-    albedo: Color,
+    texture: Arc<dyn Texture + Send + Sync>,
 }
 
 impl Lambertian {
     pub fn new(albedo: Color) -> Self {
-        Self { albedo }
+        Self { texture: Arc::new(Solid::new(albedo)) }
+    }
+
+    pub fn new_texture(texture: Option<Arc<dyn Texture + Send + Sync>>) -> Self {
+        Self { texture: texture.unwrap_or(Arc::new(Solid::new(Color::gray(0.5)))) }
     }
 }
 
@@ -33,7 +41,8 @@ impl Material for Lambertian {
         };
 
         // Attenuation
-        let attenuation = self.albedo;
+        
+        let attenuation = self.texture.value(rec.u(), rec.v(), &rec.p());
 
         (attenuation, scattered)
     }
