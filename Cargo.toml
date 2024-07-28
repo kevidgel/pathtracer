@@ -14,6 +14,7 @@ log = "0.4.22"
 nalgebra = "0.33.0"
 rand = "0.8.5"
 rayon = "1.10.0"
+tobj = "4.0.2"
 toml = "0.8.16"
 
 [profile.release]

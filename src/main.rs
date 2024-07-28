@@ -12,12 +12,13 @@ use std::sync::Arc;
 use bvh::{AxisMethod, BVHNode};
 use camera::Camera;
 use materials::{dielectric::Dielectric, lambertian::Lambertian, metal::Metal, MaterialRegistry};
-use na::Point3;
+use na::{Point3, Vector3};
 use objects::sphere::Sphere;
 use objects::{Hittable, HittableObjects};
 use rand::Rng;
 use textures::{image::Image, Checkered, TextureRegistry};
 use types::color::{Color, ColorOps};
+use objects::tri_mesh::Triangle;
 
 fn main() {
     env_logger::builder()
@@ -25,7 +26,7 @@ fn main() {
         .init();
 
     let aspect_ratio = 16_f32 / 9_f32;
-    let image_width = 400_u32;
+    let image_width = 768_u32;
     let vfov = 20_f32;
 
     let look_from = Point3::new(13_f32, 2_f32, 3_f32);
@@ -139,11 +140,20 @@ fn main() {
         1.0,
         materials.get("mat2"),
     )));
-    objects.add(Arc::new(Sphere::new(
+    // objects.add(Arc::new(Sphere::new(
+    //     Point3::new(4.0, 1.0, 0.0),
+    //     1.0,
+    //     materials.get("mat3"),
+    // )));
+
+    let test_tri: [Point3<f32>; 3] = [
         Point3::new(4.0, 1.0, 0.0),
-        1.0,
-        materials.get("mat3"),
-    )));
+        Point3::new(4.0, 1.5, 0.0),
+        Point3::new(4.0, 1.0, 2.0),
+    ];
+
+    let test_tri = Triangle::new(test_tri, None, None, materials.get("mat3"));
+    objects.add(Arc::new(test_tri));
 
     objects.add(Arc::new(ground));
     // objects.add(Arc::new(center));

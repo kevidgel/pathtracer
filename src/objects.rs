@@ -1,4 +1,5 @@
 pub mod sphere;
+pub mod tri_mesh;
 
 use crate::bvh::BBox;
 use crate::materials::Material;

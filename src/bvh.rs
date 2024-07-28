@@ -178,6 +178,7 @@ impl BVHNode {
         let axis = Self::get_axis(rng, &method, objects, start, end);
 
         let range = end - start;
+        // TODO: Set max leaf size.
         let (left, right) = match range {
             1 => {
                 let left = objects[start].clone();
