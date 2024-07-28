@@ -1,5 +1,5 @@
-use rand::Rng;
 use nalgebra::Vector3;
+use rand::Rng;
 
 // TODO: Maybe parameterize this trait
 pub trait Sampler<T> {
@@ -37,7 +37,10 @@ impl DiskSampler {
     }
 
     pub fn unit() -> Self {
-        Self { center: (0.0, 0.0), radius: 1.0 }
+        Self {
+            center: (0.0, 0.0),
+            radius: 1.0,
+        }
     }
 }
 
@@ -65,7 +68,10 @@ impl SphereSampler {
     }
 
     pub fn unit() -> Self {
-        Self { center: Vector3::new(0.0, 0.0, 0.0), radius: 1.0 }
+        Self {
+            center: Vector3::new(0.0, 0.0, 0.0),
+            radius: 1.0,
+        }
     }
 
     pub fn sample_on_hemisphere(&self, rng: &mut impl Rng, normal: &Vector3<f32>) -> Vector3<f32> {
@@ -73,8 +79,7 @@ impl SphereSampler {
 
         if normal.dot(&sample) > 0.0 {
             sample
-        }
-        else {
+        } else {
             -sample
         }
     }
@@ -93,5 +98,5 @@ impl Sampler<Vector3<f32>> for SphereSampler {
         } else {
             self.sample(rng)
         }
-    }    
+    }
 }

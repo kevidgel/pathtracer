@@ -1,8 +1,9 @@
-use std::sync::Arc;
-use crate::objects::Hittable;
+use crate::bvh::BBox;
 use crate::materials::Material;
+use crate::objects::Hittable;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};
+use std::sync::Arc;
 
 use super::HitRecord;
 
@@ -10,17 +11,31 @@ pub struct Sphere {
     center: Point3<f32>,
     radius: f32,
     mat: Option<Arc<dyn Material + Send + Sync>>,
+    bbox: BBox,
 }
 
 impl Sphere {
-    pub fn new(center: Point3<f32>, radius: f32, mat: Option<Arc<dyn Material + Send + Sync>>) -> Self {
-        Self { center, radius , mat }
+    pub fn new(
+        center: Point3<f32>,
+        radius: f32,
+        mat: Option<Arc<dyn Material + Send + Sync>>,
+    ) -> Self {
+        let rvec = Vector3::new(radius, radius, radius);
+        Self {
+            center,
+            radius,
+            mat,
+            bbox: BBox::new(center - rvec, center + rvec),
+        }
     }
 
     fn get_uv(&self, p: &Vector3<f32>) -> (f32, f32) {
         let theta = (-p.y).acos();
         let phi = f32::atan2(-p.z, p.x) + std::f32::consts::PI;
-        (phi / (2.0 * std::f32::consts::PI), theta / std::f32::consts::PI)
+        (
+            phi / (2.0 * std::f32::consts::PI),
+            theta / std::f32::consts::PI,
+        )
     }
 }
 
@@ -62,7 +77,7 @@ impl Hittable for Sphere {
             root,
             self.mat.clone(),
             u,
-            v
+            v,
         );
 
         Some(rec)
@@ -70,5 +85,9 @@ impl Hittable for Sphere {
 
     fn mat(&self) -> Option<Arc<dyn Material + Sync + Send>> {
         self.mat.clone()
+    }
+
+    fn bbox(&self) -> BBox {
+        self.bbox
     }
 }

@@ -1,9 +1,14 @@
-use rand::rngs::ThreadRng;
-use super::Material;
 use super::reflect;
-use crate::types::{ray::Ray, color::Color, color::ColorOps, sampler::{SphereSampler, Sampler}};
+use super::Material;
 use crate::objects::HitRecord;
+use crate::types::{
+    color::Color,
+    color::ColorOps,
+    ray::Ray,
+    sampler::{Sampler, SphereSampler},
+};
 use na::Vector3;
+use rand::rngs::ThreadRng;
 
 pub struct Metal {
     albedo: Color,
@@ -12,7 +17,10 @@ pub struct Metal {
 
 impl Metal {
     pub fn new(albedo: Color, fuzz: f32) -> Self {
-        Self { albedo , fuzz: fuzz.clamp(0.0, 1.0) }
+        Self {
+            albedo,
+            fuzz: fuzz.clamp(0.0, 1.0),
+        }
     }
 }
 
@@ -24,12 +32,12 @@ impl Material for Metal {
                     let sampler = SphereSampler::unit();
                     self.fuzz * sampler.sample(rng).normalize()
                 }
-                None => Vector3::zeros()
+                None => Vector3::zeros(),
             }
         } else {
             Vector3::zeros()
         };
-        
+
         let reflected = reflect(&ray_in.direction.normalize(), &rec.normal()) + fuzz;
         let scattered = Ray::new(rec.p(), reflected);
         let attenuation = self.albedo;

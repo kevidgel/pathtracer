@@ -13,6 +13,8 @@ pub trait ColorOps {
     fn get_r_gamma(&self) -> f32;
     fn get_g_gamma(&self) -> f32;
     fn get_b_gamma(&self) -> f32;
+    fn random() -> Self;
+    fn random_range(min: f32, max: f32) -> Self;
 }
 
 impl ColorOps for Color {
@@ -73,5 +75,21 @@ impl ColorOps for Color {
         ib = ib.clamp(0, 255);
 
         Rgb([ir as u8, ig as u8, ib as u8])
+    }
+
+    fn random() -> Self {
+        Color::new(
+            rand::random::<f32>(),
+            rand::random::<f32>(),
+            rand::random::<f32>(),
+        )
+    }
+
+    fn random_range(min: f32, max: f32) -> Self {
+        Color::new(
+            rand::random::<f32>() * (max - min) + min,
+            rand::random::<f32>() * (max - min) + min,
+            rand::random::<f32>() * (max - min) + min,
+        )
     }
 }

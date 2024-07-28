@@ -1,5 +1,7 @@
-use na::{Point3, Vector3};
+pub mod image;
+
 use crate::types::color::Color;
+use na::{Point3, Vector3};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -13,25 +15,37 @@ pub struct TextureRegistry {
 
 impl TextureRegistry {
     pub fn new() -> Self {
-        Self { textures: BTreeMap::new() }
+        Self {
+            textures: BTreeMap::new(),
+        }
     }
 
     pub fn add_texture(&mut self, name: &str, texture: Arc<dyn Texture + Send + Sync>) {
         self.textures.insert(name.to_string(), texture);
     }
 
-    pub fn create_texture(&mut self, name: &str, texture: impl Texture + std::marker::Send + std::marker::Sync + 'static) {
+    pub fn create_texture(
+        &mut self,
+        name: &str,
+        texture: impl Texture + std::marker::Send + std::marker::Sync + 'static,
+    ) {
         let texture: Arc<dyn Texture + Sync + Send> = Arc::new(texture);
         self.add_texture(name, texture);
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Texture + Send + Sync>> {
-        self.textures.get(name).map(|t| t.clone())
+        match self.textures.get(name) {
+            Some(texture) => Some(texture.clone()),
+            None => {
+                log::error!("Texture not found: {}", name);
+                None
+            }
+        }
     }
 }
 
 pub struct Solid {
-    albedo: Color
+    albedo: Color,
 }
 
 impl Solid {
@@ -49,16 +63,28 @@ impl Texture for Solid {
 pub struct Checkered {
     odd: Arc<dyn Texture + Send + Sync>,
     even: Arc<dyn Texture + Send + Sync>,
-    inv_scale: f32
+    inv_scale: f32,
 }
 
 impl Checkered {
-    pub fn new(odd: Arc<dyn Texture + Send + Sync>, even: Arc<dyn Texture + Send + Sync>, inv_scale: f32) -> Self {
-        Self { odd, even, inv_scale }
+    pub fn new(
+        odd: Arc<dyn Texture + Send + Sync>,
+        even: Arc<dyn Texture + Send + Sync>,
+        inv_scale: f32,
+    ) -> Self {
+        Self {
+            odd,
+            even,
+            inv_scale,
+        }
     }
-    
+
     pub fn new_solid(odd: Color, even: Color, inv_scale: f32) -> Self {
-        Self::new(Arc::new(Solid::new(odd)), Arc::new(Solid::new(even)), inv_scale)
+        Self::new(
+            Arc::new(Solid::new(odd)),
+            Arc::new(Solid::new(even)),
+            inv_scale,
+        )
     }
 }
 
@@ -70,7 +96,7 @@ impl Texture for Checkered {
 
         let u_int = (u * self.inv_scale).floor() as i64;
         let v_int = (v * self.inv_scale).floor() as i64;
-        
+
         if (u_int + v_int) % 2 == 0 {
             self.even.value(u, v, p)
         } else {

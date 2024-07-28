@@ -1,9 +1,9 @@
+use super::Material;
+use super::{reflect, refract};
+use crate::objects::HitRecord;
+use crate::types::{color::Color, color::ColorOps, ray::Ray};
 use rand::rngs::ThreadRng;
 use rand::Rng;
-use super::Material;
-use super::{reflect,refract};
-use crate::types::{ray::Ray, color::Color, color::ColorOps};
-use crate::objects::HitRecord;
 
 pub struct Dielectric {
     ref_idx: f32,
@@ -24,7 +24,11 @@ impl Dielectric {
 impl Material for Dielectric {
     fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> (Color, Ray) {
         let attenuation = Color::gray(1.0_f32);
-        let ri: f32 = if rec.front_face() { 1.0 / self.ref_idx } else { self.ref_idx };
+        let ri: f32 = if rec.front_face() {
+            1.0 / self.ref_idx
+        } else {
+            self.ref_idx
+        };
 
         let unit_direction = ray_in.direction.normalize();
         let cos_theta = (-unit_direction).dot(&rec.normal()).min(1.0);
@@ -36,10 +40,11 @@ impl Material for Dielectric {
         };
 
         let cannot_refract = ri * sin_theta > 1.0;
-        let direction = match cannot_refract || Dielectric::reflectance(cos_theta, ri) > reflect_thresh {
-            true => reflect(&unit_direction, &rec.normal()),
-            false => refract(&unit_direction, &rec.normal(), ri),
-        };
+        let direction =
+            match cannot_refract || Dielectric::reflectance(cos_theta, ri) > reflect_thresh {
+                true => reflect(&unit_direction, &rec.normal()),
+                false => refract(&unit_direction, &rec.normal(), ri),
+            };
 
         let scattered = Ray::new(rec.p(), direction);
         (attenuation, scattered)
