@@ -1,7 +1,7 @@
 use crate::materials::Material;
 use crate::objects::{HitRecord, Hittable, HittableObjects};
 use crate::types::ray::Ray;
-use na::{Point3, Vector3};
+use na::{Point3, Vector3, center};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::sync::Arc;
 
@@ -25,6 +25,10 @@ impl BBox {
             min: Point3::new(0_f32, 0_f32, 0_f32),
             max: Point3::new(0_f32, 0_f32, 0_f32),
         }
+    }
+
+    pub fn centroid(&self) -> Point3<f32> {
+        center(&self.min, &self.max)
     }
 
     pub fn merge(&self, other: &Self) -> Self {
@@ -104,9 +108,19 @@ impl BBox {
     }
 }
 
+pub enum BuildMethod {
+    BVH,
+    HLBVH,
+}
+
 pub enum AxisMethod {
     Random,
     LongestAxisFirst,
+}
+
+pub enum SplitMethod {
+    SAH,
+    Middle,
 }
 
 pub struct BVHNode {
@@ -116,16 +130,19 @@ pub struct BVHNode {
 }
 
 impl BVHNode {
+    // https://pbr-book.org/3ed-2018/Primitives_and_Intersection_Acceleration/Bounding_Volume_Hierarchies
     pub fn build_from_hittable_objects(
         rng: &mut Option<&mut ThreadRng>,
-        method: AxisMethod,
+        build_method: BuildMethod,
+        axis_method: AxisMethod,
+        split_method: SplitMethod,
         objects: HittableObjects,
     ) -> Self {
         // We clone objects to avoid mutating the original
         let mut objects = objects.objs_clone();
         let len = objects.len();
 
-        Self::build(rng, &method, &mut objects, 0, len)
+        Self::build(rng, &build_method, &axis_method, &split_method, &mut objects, 0, len)
     }
 
     fn get_axis(
@@ -156,17 +173,18 @@ impl BVHNode {
         }
     }
 
+    // TODO: refactor into bbox definition
     fn bbox_comp(
         a: &Arc<dyn Hittable + Sync + Send>,
         b: &Arc<dyn Hittable + Sync + Send>,
         axis: usize,
     ) -> std::cmp::Ordering {
-        let a_bbox = a.bbox();
-        let b_bbox = b.bbox();
+        let a_bbox_center = a.bbox().centroid();
+        let b_bbox_center = b.bbox().centroid();
 
-        if a_bbox.min[axis] < b_bbox.min[axis] {
+        if a_bbox_center[axis] < b_bbox_center[axis] {
             std::cmp::Ordering::Less
-        } else if a_bbox.min[axis] > b_bbox.min[axis] {
+        } else if a_bbox_center[axis] > b_bbox_center[axis] {
             std::cmp::Ordering::Greater
         } else {
             std::cmp::Ordering::Equal
@@ -175,12 +193,32 @@ impl BVHNode {
 
     pub fn build(
         rng: &mut Option<&mut ThreadRng>,
-        method: &AxisMethod,
+        build_method: &BuildMethod,
+        axis_method: &AxisMethod,
+        split_method: &SplitMethod,
+        objects: &mut Vec<Arc<dyn Hittable + Sync + Send>>,
+        start: usize,
+        end: usize,
+    ) -> Self{
+        match build_method {
+            BuildMethod::BVH => Self::build_bvh(rng, axis_method, split_method, objects, start, end),
+            BuildMethod::HLBVH => {
+                log::warn!("HLBVH not implemented, using BVH instead");
+                Self::build_bvh(rng, axis_method, split_method, objects, start, end)
+            },
+        }
+    }
+
+
+    pub fn build_bvh(
+        rng: &mut Option<&mut ThreadRng>,
+        axis_method: &AxisMethod,
+        split_method: &SplitMethod,
         objects: &mut Vec<Arc<dyn Hittable + Sync + Send>>,
         start: usize,
         end: usize,
     ) -> Self {
-        let axis = Self::get_axis(rng, &method, objects, start, end);
+        let axis = Self::get_axis(rng, &axis_method, objects, start, end);
 
         let range = end - start;
         // TODO: Set max leaf size.
@@ -199,13 +237,14 @@ impl BVHNode {
             }
             _ => {
                 objects[start..end].sort_by(|a, b| Self::bbox_comp(a, b, axis));
-                // TODO: SAH heurstic
-                let mid = Self::find_partition(objects, start, end);
-                let mid = start + range / 2;
+                let mid = match split_method {
+                    SplitMethod::Middle => (start + end) / 2,
+                    SplitMethod::SAH => Self::find_partition(objects, start, end),
+                };
 
-                let left = Arc::new(Self::build(rng, method, objects, start, mid))
+                let left = Arc::new(Self::build_bvh(rng, axis_method, split_method, objects, start, mid))
                     as Arc<dyn Hittable + Sync + Send>;
-                let right = Arc::new(Self::build(rng, method, objects, mid, end))
+                let right = Arc::new(Self::build_bvh(rng, axis_method, split_method, objects, mid, end))
                     as Arc<dyn Hittable + Sync + Send>;
 
                 (left, right)
@@ -251,7 +290,6 @@ impl BVHNode {
         return left.get_surface_area() * (mid - start) as f32 + right.get_surface_area() * (end - mid) as f32;
     }
 }
-
 impl Hittable for BVHNode {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         if !self.bbox.hit(ray, t_min, t_max) {
@@ -281,3 +319,5 @@ impl Hittable for BVHNode {
         self.bbox
     }
 }
+
+
