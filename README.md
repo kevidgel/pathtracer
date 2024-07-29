@@ -8,13 +8,15 @@ Current progress (1920x1080, 256 spp, 259 sec)
 
 TODO: 
 - Support loading/writing materials, objects, etc from config files
-
+- Lighting
 
 TODO LATER: 
 - gui
 - make faster
-- ADD MESHES
+    - tiling, better caching
+- ~~ADD MESHES~~
 - better pathtracing methods
+    - bidirectional
 
 TODO LATER LATER:
 - tests haha
