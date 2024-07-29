@@ -14,11 +14,11 @@ use camera::Camera;
 use materials::{dielectric::Dielectric, lambertian::Lambertian, metal::Metal, MaterialRegistry};
 use na::{Point3, Vector3};
 use objects::sphere::Sphere;
+use objects::tri_mesh::{TriMesh, Triangle};
 use objects::{Hittable, HittableObjects};
 use rand::Rng;
 use textures::{image::Image, Checkered, TextureRegistry};
 use types::color::{Color, ColorOps};
-use objects::tri_mesh::{Triangle, TriMesh};
 
 fn main() {
     env_logger::builder()
@@ -26,7 +26,7 @@ fn main() {
         .init();
 
     let aspect_ratio = 16_f32 / 9_f32;
-    let image_width = 768_u32;
+    let image_width = 1920_u32;
     let vfov = 20_f32;
 
     let look_from = Point3::new(3_f32, 2_f32, -5_f32);
@@ -61,7 +61,7 @@ fn main() {
         "check_black",
         Checkered::new_solid(Color::new(0.1, 0.1, 0.1), Color::new(0.9, 0.9, 0.9), 26.0),
     );
-    textures.create_texture("spot", Image::load("uv-debug-texture.png"));
+    textures.create_texture("spot", Image::load("spot_texture.png"));
     // Materials
     materials.create_material("ground", Metal::new(Color::new(0.3, 0.3, 0.8), 0.1));
     materials.create_material("left", Dielectric::new(1.5_f32));
@@ -146,21 +146,20 @@ fn main() {
     //     materials.get("mat3"),
     // )));
 
-    
-
-    //objects.add(Arc::new(ground));
+    objects.add(Arc::new(ground));
     // objects.add(Arc::new(center));
     // objects.add(Arc::new(left));
     // objects.add(Arc::new(bubble));
     // objects.add(Arc::new(right));
 
-    let meshes = TriMesh::load_as_vec("spot_triangulated.obj");
+    let meshes = TriMesh::load_as_vec("spot_smooth.obj");
 
     let mesh = meshes.get(0).unwrap();
-    materials.add_material("spot", Arc::new(Lambertian::new_texture(textures.get("spot"))));
+    materials.add_material(
+        "spot",
+        Arc::new(Lambertian::new_texture(textures.get("spot"))),
+    );
     let triangles = mesh.to_triangles_with_mat(materials.get("spot").unwrap());
-
-    log::debug!("triangles count: {}", triangles.len());
 
     for tri in triangles {
         objects.add(Arc::new(tri));
