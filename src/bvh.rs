@@ -60,6 +60,11 @@ impl BBox {
         (min, max)
     }
 
+    pub fn get_surface_area(&self) -> f32 {
+        let extent = self.max.coords - self.min.coords;
+        2.0 * extent.x * extent.y + 2.0 * extent.x * extent.z + 2.0 * extent.y * extent.z
+    }
+
     pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> bool {
         let orig = ray.origin;
         let dir = ray.direction;
@@ -195,6 +200,7 @@ impl BVHNode {
             _ => {
                 objects[start..end].sort_by(|a, b| Self::bbox_comp(a, b, axis));
                 // TODO: SAH heurstic
+                let mid = Self::find_partition(objects, start, end);
                 let mid = start + range / 2;
 
                 let left = Arc::new(Self::build(rng, method, objects, start, mid))
@@ -209,6 +215,40 @@ impl BVHNode {
         let bbox = left.bbox().merge(&right.bbox());
 
         Self { left, right, bbox }
+    }
+
+    fn find_partition(
+        objects: &mut Vec<Arc<dyn Hittable + Sync + Send>>,
+        start: usize,
+        end: usize,
+    ) -> usize {
+        let mut cost = std::f32::MAX;
+        let mut mid = start + (end - start) / 2;
+        let bins = 20;
+        let step = (end - start) / bins;
+        for i in (start..end).step_by(step.max(1)) {
+            let new_cost = Self::cost(objects, start, i, end);
+            if new_cost < cost {
+                cost = new_cost;
+                mid = i;
+            }
+        }
+
+        mid
+    }
+
+    fn cost(objects: &mut Vec<Arc<dyn Hittable + Sync + Send>>, start: usize, mid: usize, end: usize) -> f32 { 
+        let mut left = BBox::empty();
+        let mut right = BBox::empty();
+
+        for i in start..mid {
+            left = left.merge(&objects[i].bbox());
+        }
+        for i in mid..end {
+            right = right.merge(&objects[i].bbox());
+        }
+
+        return left.get_surface_area() * (mid - start) as f32 + right.get_surface_area() * (end - mid) as f32;
     }
 }
 

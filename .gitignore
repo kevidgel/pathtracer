@@ -1,2 +1,7 @@
 /target
 *test*.*
+*.png
+*.jpg
+*.obj
+*.mtl
+!day3.png

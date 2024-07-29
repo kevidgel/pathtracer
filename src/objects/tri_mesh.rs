@@ -220,8 +220,8 @@ impl TriMesh {
         let materials = match materials {
             Ok(mat) => mat,
             Err(e) => {
-                log::error!("Failed to load mesh: {}... Using empty mesh instead...", e);
-                return vec![];
+                log::error!("Failed to load materials: {}... Using empty materials instead...", e);
+                vec![]
             }
         };
 
