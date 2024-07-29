@@ -18,7 +18,7 @@ use objects::{Hittable, HittableObjects};
 use rand::Rng;
 use textures::{image::Image, Checkered, TextureRegistry};
 use types::color::{Color, ColorOps};
-use objects::tri_mesh::Triangle;
+use objects::tri_mesh::{Triangle, TriMesh};
 
 fn main() {
     env_logger::builder()
@@ -29,12 +29,12 @@ fn main() {
     let image_width = 768_u32;
     let vfov = 20_f32;
 
-    let look_from = Point3::new(13_f32, 2_f32, 3_f32);
+    let look_from = Point3::new(3_f32, 2_f32, -5_f32);
     let look_at = Point3::new(0_f32, 0_f32, 0_f32);
     let focal_length = 10_f32;
-    let defocus_angle = 0.6_f32;
+    let defocus_angle = 0_f32;
     let spp = 512_u32;
-    let max_depth = 50_u32;
+    let max_depth = 20_u32;
     let camera = Camera::new(
         aspect_ratio,
         image_width,
@@ -61,10 +61,9 @@ fn main() {
         "check_black",
         Checkered::new_solid(Color::new(0.1, 0.1, 0.1), Color::new(0.9, 0.9, 0.9), 26.0),
     );
-    textures.create_texture("earth", Image::load("earthmap.jpg"));
+    textures.create_texture("spot", Image::load("uv-debug-texture.png"));
     // Materials
-    materials.create_material("ground", Metal::new(Color::new(0.8, 0.8, 0.8), 0.1));
-    materials.create_material("center", Lambertian::new_texture(textures.get("earth")));
+    materials.create_material("ground", Metal::new(Color::new(0.3, 0.3, 0.8), 0.1));
     materials.create_material("left", Dielectric::new(1.5_f32));
     materials.create_material("bubble", Dielectric::new(1.0_f32 / 1.5_f32));
     materials.create_material("right", Metal::new(Color::new(0.8, 0.6, 0.2), 1.0));
@@ -95,71 +94,77 @@ fn main() {
     //     0.5,
     //     materials.get("right"),
     // );
-    let mut rng = rand::thread_rng();
-    for i in -11..11 {
-        for j in -11..11 {
-            let choose_mat: f32 = rng.gen();
-            let center = Point3::new(
-                i as f32 + 0.9 * rng.gen::<f32>(),
-                0.2,
-                j as f32 + 0.9 * rng.gen::<f32>(),
-            );
 
-            if (center - Point3::new(4.0, 0.2, 0.0)).norm() > 0.9 {
-                if choose_mat < 0.8 {
-                    // diffuse
-                    let albedo = Color::random().component_mul(&ColorOps::random());
-                    let sphere = Sphere::new(center, 0.2, Some(Arc::new(Lambertian::new(albedo))));
-                    objects.add(Arc::new(sphere));
-                } else if choose_mat < 0.95 {
-                    // metal
-                    let albedo = Color::random_range(0.5, 1.0);
-                    let fuzz = rng.gen_range(0.0..0.5);
-                    let sphere = Sphere::new(center, 0.2, Some(Arc::new(Metal::new(albedo, fuzz))));
-                    objects.add(Arc::new(sphere));
-                } else {
-                    // glass
-                    let sphere = Sphere::new(center, 0.2, Some(Arc::new(Dielectric::new(1.5))));
-                    objects.add(Arc::new(sphere));
-                }
-            }
-        }
-    }
+    // let mut rng = rand::thread_rng();
+    // for i in -11..11 {
+    //     for j in -11..11 {
+    //         let choose_mat: f32 = rng.gen();
+    //         let center = Point3::new(
+    //             i as f32 + 0.9 * rng.gen::<f32>(),
+    //             0.2,
+    //             j as f32 + 0.9 * rng.gen::<f32>(),
+    //         );
+
+    //         if (center - Point3::new(4.0, 0.2, 0.0)).norm() > 0.9 {
+    //             if choose_mat < 0.8 {
+    //                 // diffuse
+    //                 let albedo = Color::random().component_mul(&ColorOps::random());
+    //                 let sphere = Sphere::new(center, 0.2, Some(Arc::new(Lambertian::new(albedo))));
+    //                 objects.add(Arc::new(sphere));
+    //             } else if choose_mat < 0.95 {
+    //                 // metal
+    //                 let albedo = Color::random_range(0.5, 1.0);
+    //                 let fuzz = rng.gen_range(0.0..0.5);
+    //                 let sphere = Sphere::new(center, 0.2, Some(Arc::new(Metal::new(albedo, fuzz))));
+    //                 objects.add(Arc::new(sphere));
+    //             } else {
+    //                 // glass
+    //                 let sphere = Sphere::new(center, 0.2, Some(Arc::new(Dielectric::new(1.5))));
+    //                 objects.add(Arc::new(sphere));
+    //             }
+    //         }
+    //     }
+    // }
 
     materials.create_material("mat1", Dielectric::new(1.5_f32));
     materials.create_material("mat2", Lambertian::new(Color::new(0.4, 0.2, 0.1)));
     materials.create_material("mat3", Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
 
-    objects.add(Arc::new(Sphere::new(
-        Point3::new(0.0, 1.0, 0.0),
-        1.0,
-        materials.get("mat1"),
-    )));
-    objects.add(Arc::new(Sphere::new(
-        Point3::new(-4.0, 1.0, 0.0),
-        1.0,
-        materials.get("mat2"),
-    )));
+    // objects.add(Arc::new(Sphere::new(
+    //     Point3::new(0.0, 1.0, 0.0),
+    //     1.0,
+    //     materials.get("mat1"),
+    // )));
+    // objects.add(Arc::new(Sphere::new(
+    //     Point3::new(-4.0, 1.0, 0.0),
+    //     1.0,
+    //     materials.get("mat2"),
+    // )));
     // objects.add(Arc::new(Sphere::new(
     //     Point3::new(4.0, 1.0, 0.0),
     //     1.0,
     //     materials.get("mat3"),
     // )));
 
-    let test_tri: [Point3<f32>; 3] = [
-        Point3::new(4.0, 1.0, 0.0),
-        Point3::new(4.0, 1.5, 0.0),
-        Point3::new(4.0, 1.0, 2.0),
-    ];
+    
 
-    let test_tri = Triangle::new(test_tri, None, None, materials.get("mat3"));
-    objects.add(Arc::new(test_tri));
-
-    objects.add(Arc::new(ground));
+    //objects.add(Arc::new(ground));
     // objects.add(Arc::new(center));
     // objects.add(Arc::new(left));
     // objects.add(Arc::new(bubble));
     // objects.add(Arc::new(right));
+
+    let meshes = TriMesh::load_as_vec("spot_triangulated.obj");
+
+    let mesh = meshes.get(0).unwrap();
+    materials.add_material("spot", Arc::new(Lambertian::new_texture(textures.get("spot"))));
+    let triangles = mesh.to_triangles_with_mat(materials.get("spot").unwrap());
+
+    log::debug!("triangles count: {}", triangles.len());
+
+    for tri in triangles {
+        objects.add(Arc::new(tri));
+    }
 
     let objects =
         BVHNode::build_from_hittable_objects(&mut None, AxisMethod::LongestAxisFirst, objects);

@@ -39,8 +39,8 @@ impl Texture for Image {
                     let v = 1.0 - v.clamp(0.0, 1.0);
 
                     let (i, j) = (
-                        (u * image.width() as f32) as u32,
-                        (v * image.height() as f32) as u32,
+                        (u * (image.width() - 1) as f32) as u32,
+                        (v * (image.height() - 1) as f32) as u32,
                     );
 
                     let pixel = image.get_pixel(i, j);

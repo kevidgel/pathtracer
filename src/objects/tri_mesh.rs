@@ -6,7 +6,7 @@ use crate::bvh::BBox;
 use crate::materials::Material;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
-use na::{Point, Point3, Vector3};
+use na::{Point2, Point3, Vector2, Vector3, Matrix4};
 use rayon::vec;
 use tobj;
 use std::collections::BTreeMap;
@@ -20,16 +20,24 @@ use super::HitRecord;
 pub struct TriVert {
     position: Point3<f32>,
     normal: Vector3<f32>,
-    uv: (f32, f32),
+    uv: Point2<f32>,
 }
 
 impl TriVert {
-    pub fn new(position: Point3<f32>, normal: Vector3<f32>, uv: (f32, f32)) -> Self {
+    pub fn new(position: Point3<f32>, normal: Vector3<f32>, uv: Point2<f32>) -> Self {
         Self {
             position,
             normal,
             uv,
         }
+    }
+
+    pub fn set_uv(&mut self, uv: Point2<f32>) {
+        self.uv = uv;
+    }
+
+    pub fn set_normal(&mut self, normal: Vector3<f32>) {
+        self.normal = normal;
     }
 }
 
@@ -46,7 +54,7 @@ impl Triangle {
     pub fn new(
         vertices: [Point3<f32>; 3],
         normals: Option<[Vector3<f32>; 3]>,
-        texture_uv: Option<[(f32, f32); 3]>,
+        texture_uv: Option<[Point2<f32>; 3]>,
         material: Option<Arc<dyn Material + Sync + Send>>,
     ) -> Self {
         let normals = normals.unwrap_or([
@@ -55,7 +63,7 @@ impl Triangle {
             get_normal(&vertices[0], &vertices[1], &vertices[2]),
         ]);
 
-        let texture_uv = texture_uv.unwrap_or([(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)]);
+        let texture_uv = texture_uv.unwrap_or([Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)]);
 
         Self {
             vertices: [
@@ -74,6 +82,12 @@ impl Triangle {
     pub fn vertex(&self, index: usize) -> TriVert {
         self.vertices[index]
     }
+
+    // pub fn transform_mut(&mut self, transform: &Matrix4<f32>) {
+    //     for v in self.vertices.iter_mut() {
+    //         v.position = transform * Point3::from_vec(v.position.coords);
+    //     }   
+    // }
 }
 
 impl Hittable for Triangle {
@@ -102,21 +116,19 @@ impl Hittable for Triangle {
             && uvt[2] <= t_max
         {
             true => {
-                // Interpolated vertex normals
-                let normal = ((1.0_f32 - uvt[0] - uvt[1]) * self.vertices[0].normal
-                    + uvt[0] * self.vertices[1].normal
-                    + uvt[1] * self.vertices[2].normal)
-                    .normalize();
-                // Barycentric
-                let position = v0 + uvt[0] * e1 + uvt[1] * e2;
+                // Interpolate
+                let (u, v, w, t) = (uvt[0], uvt[1], 1.0 - uvt[0] - uvt[1], uvt[2]);
+                let normal = (w * self.vertices[0].normal + u * self.vertices[1].normal + v * self.vertices[2].normal).normalize();
+                let position = v0 + u * e1 + v * e2;
+                let tex_coord = w * self.vertices[0].uv.coords + u * self.vertices[1].uv.coords + v * self.vertices[2].uv.coords;
                 Some(HitRecord::new(
                     ray,
                     position,
                     normal,
-                    uvt[2],
+                    t,
                     self.material.clone(),
-                    uvt[0],
-                    uvt[1],
+                    tex_coord.x,
+                    tex_coord.y,
                 ))
             }
             false => None,
@@ -155,24 +167,122 @@ impl Hittable for Triangle {
 }
 
 pub struct TriMesh {
-    vertices: Vec<TriVert>,
-    indices: Vec<u32>,
+    positions: (Vec<Point3<f32>>, Vec<u32>),
+    normals: Option<(Vec<Vector3<f32>>, Vec<u32>)>,
+    uvs: Option<(Vec<Point2<f32>>, Vec<u32>)>,
+    transform: Matrix4<f32>,
 }
 
 impl TriMesh {
-    pub fn new(vertices: Vec<TriVert>, indices: Vec<u32>) -> Self {
-        Self { vertices, indices }
+    pub fn new(positions: (Vec<Point3<f32>>, Vec<u32>), normals: Option<(Vec<Vector3<f32>>, Vec<u32>)>, uvs: Option<(Vec<Point2<f32>>, Vec<u32>)>, transform: Option<Matrix4<f32>>) -> Self {
+        Self {  positions, normals, uvs, transform: transform.unwrap_or(Matrix4::identity()) }
     }
 
-    pub fn load(path: &str) -> Self {
+    pub fn transform_mut(&mut self, transform: &Matrix4<f32>) {
+        self.transform = self.transform * transform;
+    }
+
+    pub fn load_as_vec(path: &str) -> Vec<Self> {
+        log::debug!("Loading mesh: {}...", path);
         let (models, materials) = match tobj::load_obj(path, &tobj::LoadOptions::default()) {
-            Ok((v, i)) => (v, i),
+            Ok(res) => res,
             Err(e) => {
                 log::error!("Failed to load mesh: {}... Using empty mesh instead...", e);
-                return Self::new(vec![], vec![]);
+                return vec![];
             }
         };
 
-        Self::new(vec![], vec![])
+        let materials = match materials {
+            Ok(mat) => mat,
+            Err(e) => {
+                log::error!("Failed to load mesh: {}... Using empty mesh instead...", e);
+                return vec![];
+            }
+        };
+
+        log::debug!("Found {} models...", models.len());
+        // TODO: add material support later
+        log::debug!("Found {} materials...", materials.len());
+
+        let mut meshes: Vec<Self> = vec![];
+        for (i, m) in models.iter().enumerate() {
+            let mesh_obj = &m.mesh;
+            log::debug!("Model {} has {} vertices and {} triangles...", i, mesh_obj.positions.len() / 3, mesh_obj.indices.len() / 3);
+            log::debug!("Model {} has {} normals and {} uvs...", i, mesh_obj.normals.len() / 3, mesh_obj.texcoords.len() / 3);
+            log::debug!("Model {} has {} texcoord indices...", i, mesh_obj.texcoord_indices.len());
+            
+            // TODO: add normals and uvs
+            let mesh = TriMesh::new(
+                (mesh_obj.positions.chunks(3).map(|v| Point3::new(v[0], v[1], v[2])).collect(), mesh_obj.indices.clone()),
+                if mesh_obj.normals.len() > 0 { Some((mesh_obj.normals.chunks(3).map(|v| Vector3::new(v[0], v[1], v[2])).collect(), mesh_obj.indices.clone())) } else { None },
+                if mesh_obj.texcoords.len() > 0 { Some((mesh_obj.texcoords.chunks(2).map(|v| Point2::new(v[0], v[1])).collect(), mesh_obj.indices.clone())) } else { None },
+                None,
+            );
+            meshes.push(mesh);
+        }
+
+        meshes
+    }
+
+    pub fn to_triangles(&self) -> Vec<Triangle> {
+        let range = self.positions.1.len();
+
+        (0..range).step_by(3)
+            .map(|i| Triangle::new(
+                [
+                    self.positions.0[self.positions.1[i] as usize],
+                    self.positions.0[self.positions.1[i+1] as usize],
+                    self.positions.0[self.positions.1[i+2] as usize],
+                ],
+                match &self.normals { 
+                    Some(n) => Some([
+                        n.0[n.1[i] as usize],
+                        n.0[n.1[i+1] as usize],
+                        n.0[n.1[i+2] as usize],
+                    ]),
+                    None => None
+                },
+                match &self.uvs {
+                    Some(uvs) => Some([
+                        uvs.0[uvs.1[i] as usize],
+                        uvs.0[uvs.1[i+1] as usize],
+                        uvs.0[uvs.1[i+2] as usize],
+                    ]),
+                    None => None
+                },
+                None,
+            ))
+            .collect()  
+    }
+
+    pub fn to_triangles_with_mat(&self, material: Arc<dyn Material + Sync + Send>) -> Vec<Triangle> {
+        let range = self.positions.1.len();
+
+        (0..range).step_by(3)
+            .map(|i| Triangle::new(
+                [
+                    self.positions.0[self.positions.1[i] as usize],
+                    self.positions.0[self.positions.1[i+1] as usize],
+                    self.positions.0[self.positions.1[i+2] as usize],
+                ],
+                match &self.normals { 
+                    Some(n) => Some([
+                        n.0[n.1[i] as usize],
+                        n.0[n.1[i+1] as usize],
+                        n.0[n.1[i+2] as usize],
+                    ]),
+                    None => None
+                },
+                match &self.uvs {
+                    Some(uvs) => Some([
+                        uvs.0[uvs.1[i] as usize],
+                        uvs.0[uvs.1[i+1] as usize],
+                        uvs.0[uvs.1[i+2] as usize],
+                    ]),
+                    None => None
+                },
+                Some(material.clone()),
+            ))
+            .collect()   
     }
 }
