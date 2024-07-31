@@ -9,7 +9,7 @@ mod types;
 
 use std::sync::Arc;
 
-use bvh::{BuildMethod, AxisMethod, SplitMethod, BVHNode};
+use bvh::{BVHBuilder, SplitMethod};
 use camera::Camera;
 use materials::{dielectric::Dielectric, lambertian::Lambertian, metal::Metal, MaterialRegistry};
 use na::{Point3, Vector3};
@@ -29,12 +29,12 @@ fn main() {
     let image_width = 1920_u32;
     let vfov = 20_f32;
 
-    let look_from = Point3::new(3_f32, 2_f32, -5_f32);
+    let look_from = Point3::new(-3_f32, 2_f32, 5_f32);
     let look_at = Point3::new(0_f32, 0_f32, 0_f32);
     let focal_length = 10_f32;
     let defocus_angle = 0_f32;
     let spp = 512_u32;
-    let max_depth = 5_u32;
+    let max_depth = 32_u32;
     let camera = Camera::new(
         aspect_ratio,
         image_width,
@@ -127,7 +127,7 @@ fn main() {
     // }
 
     materials.create_material("mat1", Dielectric::new(1.5_f32));
-    materials.create_material("mat2", Lambertian::new(Color::new(0.5, 0.5, 0.5)));
+    materials.create_material("mat2", Lambertian::new(Color::new(0.8, 0.8, 0.8)));
     materials.create_material("mat3", Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
 
     // objects.add(Arc::new(Sphere::new(
@@ -146,27 +146,26 @@ fn main() {
     //     materials.get("mat3"),
     // )));
 
-    //objects.add(Arc::new(ground));
+    objects.add(Arc::new(ground));
     // objects.add(Arc::new(center));
     // objects.add(Arc::new(left));
     // objects.add(Arc::new(bubble));
     // objects.add(Arc::new(right));
 
-    let meshes = TriMesh::load_as_vec("teapot_smooth.obj");
+    let meshes = TriMesh::load_as_vec("dragon.obj");
 
     let mesh = meshes.get(0).unwrap();
     materials.add_material(
         "spot",
         Arc::new(Lambertian::new_texture(textures.get("spot"))),
     );
-    let triangles = mesh.to_triangles_with_mat(materials.get("mat3").unwrap());
+    let triangles = mesh.to_triangles_with_mat(materials.get("mat2").unwrap());
 
     for tri in triangles {
         objects.add(Arc::new(tri));
     }
 
-    let objects =
-        BVHNode::build_from_hittable_objects(&mut None, BuildMethod::BVH, AxisMethod::LongestAxisFirst, SplitMethod::SAH, objects);
+    let objects = BVHBuilder::build_flattened_from_hittable_objects(SplitMethod::Middle, objects);
 
     log::info!("Rendering...");
     let buffer = camera.render(&objects);

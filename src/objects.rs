@@ -7,6 +7,8 @@ use crate::types::ray::Ray;
 use na::{Point3, Vector3};
 use std::sync::Arc;
 
+pub type Primitive = Arc<dyn Hittable + Sync + Send>;
+
 pub struct HitRecord {
     // Normal stuff
     p: Point3<f32>,
@@ -98,7 +100,7 @@ pub trait Hittable {
 pub struct HittableObjects {
     // TODO: replace with kd tree
     // TODO: idk if we should box this
-    objs: Vec<Arc<dyn Hittable + Sync + Send>>,
+    objs: Vec<Primitive>,
     bbox: BBox,
 }
 
@@ -110,11 +112,11 @@ impl HittableObjects {
         }
     }
 
-    pub fn objs_clone(&self) -> Vec<Arc<dyn Hittable + Sync + Send>> {
+    pub fn objs_clone(&self) -> Vec<Primitive> {
         self.objs.clone()
     }
 
-    pub fn add(&mut self, obj: Arc<dyn Hittable + Sync + Send>) {
+    pub fn add(&mut self, obj: Primitive) {
         self.bbox = self.bbox.merge(&obj.bbox());
         self.objs.push(obj);
     }
@@ -127,14 +129,14 @@ impl HittableObjects {
 impl Hittable for HittableObjects {
     // Ideally we replace this with spatial data structure
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        if !self.bbox.hit(ray, t_min, t_max) {
+        if self.bbox.intersect(ray, t_min, t_max).is_none() {
             return None;
         }
 
         let mut rec: Option<HitRecord> = None;
         let mut closest_so_far = t_max;
         for obj in &self.objs {
-            if !obj.bbox().hit(ray, t_min, closest_so_far) {
+            if obj.bbox().intersect(ray, t_min, closest_so_far).is_none() {
                 continue;
             }
             if let Some(hit) = obj.hit(ray, t_min, closest_so_far) {

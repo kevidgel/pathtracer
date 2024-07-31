@@ -6,7 +6,7 @@ use crate::bvh::BBox;
 use crate::materials::Material;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
-use na::{Matrix4, Point2, Point3, Vector2, Vector3};
+use na::{Matrix4, Point2, Point3, Vector2, Vector3, Matrix3};
 use rayon::vec;
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -45,6 +45,7 @@ fn get_normal(v0: &Point3<f32>, v1: &Point3<f32>, v2: &Point3<f32>) -> Vector3<f
     (v1 - v0).cross(&(v2 - v0)).normalize()
 }
 
+#[derive(Clone)]
 pub struct Triangle {
     vertices: [TriVert; 3],
     material: Option<Arc<dyn Material + Sync + Send>>,
@@ -97,20 +98,20 @@ impl Triangle {
 impl Hittable for Triangle {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         // Moller-Trumbore algorithm
-        let v0 = self.vertices[0].position;
-        let v1 = self.vertices[1].position;
-        let v2 = self.vertices[2].position;
+        let v0 = &self.vertices[0].position;
+        let v1 = &self.vertices[1].position;
+        let v2 = &self.vertices[2].position;
 
         let s = ray.origin - v0;
         let e1 = v1 - v0;
         let e2 = v2 - v0;
         let d = ray.direction;
 
-        let e1_x_d = e1.cross(&d);
-        let s_x_e2 = s.cross(&e2);
+        let e1_x_d = &e1.cross(&d);
+        let e2_x_s = &e2.cross(&s);
 
-        let triple = e1_x_d.dot(&e2);
-        let uvt = Vector3::new((-s_x_e2).dot(&d), e1_x_d.dot(&s), (-s_x_e2).dot(&e1)) / triple;
+        let triple = (&e1_x_d).dot(&e2);
+        let uvt = Vector3::new((&e2_x_s).dot(&d), (&e1_x_d).dot(&s), (&e2_x_s).dot(&e1)) / triple;
 
         match (triple != 0.0)
             && (uvt[0] >= 0.0)
@@ -121,6 +122,7 @@ impl Hittable for Triangle {
         {
             true => {
                 // Interpolate
+                // TODO: Rewrite this using BLAS
                 let (u, v, w, t) = (uvt[0], uvt[1], 1.0 - uvt[0] - uvt[1], uvt[2]);
                 let normal = (w * self.vertices[0].normal
                     + u * self.vertices[1].normal
