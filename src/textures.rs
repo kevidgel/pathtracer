@@ -1,7 +1,7 @@
 pub mod image;
 
 use crate::types::color::Color;
-use na::{Point3, Vector3};
+use na::Point3;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 

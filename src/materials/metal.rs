@@ -3,7 +3,6 @@ use super::Material;
 use crate::objects::HitRecord;
 use crate::types::{
     color::Color,
-    color::ColorOps,
     ray::Ray,
     sampler::{Sampler, SphereSampler},
 };

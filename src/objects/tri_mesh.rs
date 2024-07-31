@@ -6,11 +6,7 @@ use crate::bvh::BBox;
 use crate::materials::Material;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
-use na::{Matrix4, Point2, Point3, Vector2, Vector3, Matrix3};
-use rayon::vec;
-use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::BufReader;
+use na::{Point2, Point3, Vector3};
 use std::sync::Arc;
 use tobj;
 
@@ -30,14 +26,6 @@ impl TriVert {
             normal,
             uv,
         }
-    }
-
-    pub fn set_uv(&mut self, uv: Point2<f32>) {
-        self.uv = uv;
-    }
-
-    pub fn set_normal(&mut self, normal: Vector3<f32>) {
-        self.normal = normal;
     }
 }
 
@@ -87,12 +75,6 @@ impl Triangle {
     pub fn vertex(&self, index: usize) -> TriVert {
         self.vertices[index]
     }
-
-    // pub fn transform_mut(&mut self, transform: &Matrix4<f32>) {
-    //     for v in self.vertices.iter_mut() {
-    //         v.position = transform * Point3::from_vec(v.position.coords);
-    //     }
-    // }
 }
 
 impl Hittable for Triangle {
@@ -187,7 +169,6 @@ pub struct TriMesh {
     positions: (Vec<Point3<f32>>, Vec<u32>),
     normals: Option<(Vec<Vector3<f32>>, Vec<u32>)>,
     uvs: Option<(Vec<Point2<f32>>, Vec<u32>)>,
-    transform: Matrix4<f32>,
 }
 
 impl TriMesh {
@@ -195,18 +176,12 @@ impl TriMesh {
         positions: (Vec<Point3<f32>>, Vec<u32>),
         normals: Option<(Vec<Vector3<f32>>, Vec<u32>)>,
         uvs: Option<(Vec<Point2<f32>>, Vec<u32>)>,
-        transform: Option<Matrix4<f32>>,
     ) -> Self {
         Self {
             positions,
             normals,
             uvs,
-            transform: transform.unwrap_or(Matrix4::identity()),
         }
-    }
-
-    pub fn transform_mut(&mut self, transform: &Matrix4<f32>) {
-        self.transform = self.transform * transform;
     }
 
     pub fn load_as_vec(path: &str) -> Vec<Self> {
@@ -222,7 +197,10 @@ impl TriMesh {
         let materials = match materials {
             Ok(mat) => mat,
             Err(e) => {
-                log::error!("Failed to load materials: {}... Using empty materials instead...", e);
+                log::error!(
+                    "Failed to load materials: {}... Using empty materials instead...",
+                    e
+                );
                 vec![]
             }
         };
@@ -282,7 +260,6 @@ impl TriMesh {
                 } else {
                     None
                 },
-                None,
             );
 
             meshes.push(mesh);

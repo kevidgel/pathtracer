@@ -5,13 +5,13 @@ use crate::{
         ray::Ray,
         sampler::DiskSampler,
     },
-    Hittable, HittableObjects,
+    Hittable,
 };
 use image::{ImageBuffer, RgbImage};
 use indicatif::ParallelProgressIterator;
 use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
-use rayon::iter::{FoldChunks, ParallelIterator};
+use rayon::iter::ParallelIterator;
 use std::cmp;
 
 pub struct CameraConfig {

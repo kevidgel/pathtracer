@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate nalgebra as na;
 mod bvh;
 mod camera;
@@ -12,13 +14,12 @@ use std::sync::Arc;
 use bvh::{BVHBuilder, SplitMethod};
 use camera::Camera;
 use materials::{dielectric::Dielectric, lambertian::Lambertian, metal::Metal, MaterialRegistry};
-use na::{Point3, Vector3};
+use na::Point3;
 use objects::sphere::Sphere;
-use objects::tri_mesh::{TriMesh, Triangle};
+use objects::tri_mesh::TriMesh;
 use objects::{Hittable, HittableObjects};
-use rand::Rng;
 use textures::{image::Image, Checkered, TextureRegistry};
-use types::color::{Color, ColorOps};
+use types::color::Color;
 
 fn main() {
     env_logger::builder()

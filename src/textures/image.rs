@@ -1,7 +1,7 @@
 use super::Texture;
 use crate::types::color::{Color, ColorOps};
-use image::{ImageBuffer, RgbImage};
-use na::{Point3, Vector3};
+use image::RgbImage;
+use na::Point3;
 
 pub struct Image {
     image: Option<RgbImage>,
