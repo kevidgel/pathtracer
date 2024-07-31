@@ -27,15 +27,15 @@ fn main() {
         .init();
 
     let aspect_ratio = 16_f32 / 9_f32;
-    let image_width = 1920_u32;
+    let image_width = 768_u32;
     let vfov = 20_f32;
 
     let look_from = Point3::new(-3_f32, 2_f32, 5_f32);
     let look_at = Point3::new(0_f32, 0_f32, 0_f32);
     let focal_length = 10_f32;
     let defocus_angle = 0_f32;
-    let spp = 512_u32;
-    let max_depth = 32_u32;
+    let spp = 256_u32;
+    let max_depth = 16_u32;
     let camera = Camera::new(
         aspect_ratio,
         image_width,
@@ -166,7 +166,7 @@ fn main() {
         objects.add(Arc::new(tri));
     }
 
-    let objects = BVHBuilder::build_flattened_from_hittable_objects(SplitMethod::Middle, objects);
+    let objects = BVHBuilder::build_from_hittable_objects(SplitMethod::Middle, objects);
 
     log::info!("Rendering...");
     let buffer = camera.render(&objects);

@@ -31,14 +31,10 @@ impl BBox {
     }
 
     #[inline(always)]
-    pub fn open() -> Self {
+    pub fn point(point: Point3<f32>) -> Self {
         Self {
-            min: Point3::new(
-                std::f32::NEG_INFINITY,
-                std::f32::NEG_INFINITY,
-                std::f32::NEG_INFINITY,
-            ),
-            max: Point3::new(std::f32::INFINITY, std::f32::INFINITY, std::f32::INFINITY),
+            min: point,
+            max: point
         }
     }
 
@@ -58,6 +54,21 @@ impl BBox {
             self.max.x.max(other.max.x),
             self.max.y.max(other.max.y),
             self.max.z.max(other.max.z),
+        );
+        Self { min, max }
+    }
+
+    #[inline(always)]
+    pub fn enclose(&self, other: &Point3<f32>) -> Self {
+        let min = Point3::new(
+            self.min.x.min(other.x),
+            self.min.y.min(other.y),
+            self.min.z.min(other.z),
+        );
+        let max = Point3::new(
+            self.max.x.max(other.x),
+            self.max.y.max(other.y),
+            self.max.z.max(other.z),
         );
         Self { min, max }
     }
@@ -195,6 +206,7 @@ impl BBox {
 
 pub enum SplitMethod {
     SAH,
+    EqualCounts,
     Middle,
 }
 
@@ -245,6 +257,7 @@ impl BVHBuilder {
     }
 
     fn build_bvh(&self, objects: &mut Vec<Primitive>, start: usize, end: usize) -> BVHNodePtr {
+        assert!(start < end, "{} {}", start, end);
         // Compute bounds of all objects in the list
         let bbox = objects[start..end]
             .iter()
@@ -253,34 +266,46 @@ impl BVHBuilder {
         let axis = bbox.longest_axis();
         let size = end - start;
         // TODO: Set max leaf size.
-        let result = match size {
-            1 => {
-                //let prims = objects[start..end].to_vec();
-                BVHNode::new_leaf_as_box(start, size, bbox, axis as u8)
-            }
-            2 => {
-                let left = BVHNode::new_leaf_as_box(start, 1, objects[start].bbox(), axis as u8);
-                let right =
-                    BVHNode::new_leaf_as_box(start + 1, 1, objects[start + 1].bbox(), axis as u8);
-                let bbox = objects[start].bbox().merge(&objects[start + 1].bbox());
-                BVHNode::new_interior_as_box(left, right, bbox, axis as u8)
-            }
-            _ => {
-                objects[start..end].sort_by(|a, b| BBox::bbox_comp(&a.bbox(), &b.bbox(), axis));
+        match size <= self.max_leaf_size {
+            true => {
+                BVHNode::new_leaf_as_box(start, size, bbox)
+            } 
+            false => {
+                let centroid_bbox = objects[start..end].iter().fold(
+                    BBox::point(objects[start].bbox().centroid()),
+                    |acc, obj| acc.enclose(&obj.bbox().centroid()),
+                );
+
+                // Return leaf if the bounding boxes are too small
+                if centroid_bbox.max[axis] - centroid_bbox.min[axis] <= 0.0001 {
+                    return BVHNode::new_leaf_as_box(start, size, bbox);
+                }
+
                 let mid = match self.split_method {
-                    _ => (start + end) / 2,
-                    //SplitMethod::SAH => Self::find_partition(objects, start, end),
+                    SplitMethod::EqualCounts => {
+                        objects[start..end].sort_by(|a, b| BBox::bbox_comp(&a.bbox(), &b.bbox(), axis));
+
+                        start + size / 2
+                    }
+                    _ => {
+                        objects[start..end].sort_by(|a, b| BBox::bbox_comp(&a.bbox(), &b.bbox(), axis));
+
+                        let center = (objects[start].bbox().centroid()[axis] + objects[end-1].bbox().centroid()[axis]) / 2.0;
+                        let mid = objects[start..end].partition_point(|obj| obj.bbox().centroid()[axis] < center);
+                        
+                        if start >= mid || mid >= end {
+                            start + size / 2
+                        } else {
+                            mid
+                        }
+                    }
                 };
 
                 let left = self.build_bvh(objects, start, mid);
                 let right = self.build_bvh(objects, mid, end);
-                let bbox = left.get_bbox().merge(&right.get_bbox());
-
                 BVHNode::new_interior_as_box(left, right, bbox, axis as u8)
             }
-        };
-
-        result
+        }
     }
 
     fn flatten_bvh(&self, node: &BVHNode) -> Vec<FlatBVHNode> {
@@ -317,9 +342,8 @@ impl BVHBuilder {
                 start,
                 size,
                 bbox,
-                axis,
             } => {
-                nodes.push(FlatBVHNode::new_leaf(*start, *size, *bbox, *axis));
+                nodes.push(FlatBVHNode::new_leaf(*start, *size, *bbox));
             }
         }
     }
@@ -335,8 +359,7 @@ pub enum BVHNode {
     Leaf {
         start: usize,
         size: usize,
-        bbox: BBox,
-        axis: u8,
+        bbox: BBox
     },
 }
 
@@ -352,12 +375,11 @@ impl BVHNode {
     }
 
     #[inline(always)]
-    fn new_leaf(start: usize, size: usize, bbox: BBox, axis: u8) -> Self {
+    fn new_leaf(start: usize, size: usize, bbox: BBox) -> Self {
         BVHNode::Leaf {
             start,
             size,
             bbox,
-            axis,
         }
     }
 
@@ -372,8 +394,8 @@ impl BVHNode {
     }
 
     #[inline(always)]
-    fn new_leaf_as_box(start: usize, size: usize, bbox: BBox, axis: u8) -> BVHNodePtr {
-        Box::new(BVHNode::new_leaf(start, size, bbox, axis))
+    fn new_leaf_as_box(start: usize, size: usize, bbox: BBox) -> BVHNodePtr {
+        Box::new(BVHNode::new_leaf(start, size, bbox))
     }
 
     #[inline(always)]
@@ -466,10 +488,7 @@ impl BVHNode {
                             ),
                             (false, false) => {
                                 // Bboxes overlap
-                                let left_sah = left.get_bbox().get_surface_area();
-                                let right_sah = right.get_bbox().get_surface_area();
-
-                                if left_sah < right_sah {
+                                if t_min_l < t_min_r {
                                     left.biased_traverse(
                                         ordered_objects,
                                         ray,
@@ -504,7 +523,6 @@ impl BVHNode {
                 start,
                 size,
                 bbox: _,
-                axis: _,
             } => {
                 let mut closest_hit: Option<HitRecord> = None;
                 let mut closest_so_far = ray_t_max;
@@ -532,7 +550,6 @@ pub enum FlatBVHNode {
         offset: usize,
         size: usize,
         bbox: BBox,
-        axis: u8,
     },
 }
 
@@ -545,12 +562,11 @@ impl FlatBVHNode {
         }
     }
 
-    pub fn new_leaf(offset: usize, size: usize, bbox: BBox, axis: u8) -> Self {
+    pub fn new_leaf(offset: usize, size: usize, bbox: BBox) -> Self {
         FlatBVHNode::Leaf {
             offset,
             size,
-            bbox,
-            axis,
+            bbox
         }
     }
 
@@ -606,62 +622,56 @@ impl FlatBVH {
             ray.direction.z < 0.0,
         ];
 
+        // TODO: refactor into bbox aware traversal
         loop {
             let node = &self.nodes[current_node_index];
-            match node {
-                FlatBVHNode::Interior {
-                    right_child_offset,
-                    bbox,
-                    axis,
-                } => match bbox.intersect_bool(ray, t_min, t_max) {
-                    true => {
-                        if dir_is_neg[*axis as usize] {
-                            nodes_to_visit[to_visit_offset] = current_node_index + 1;
-                            to_visit_offset += 1;
-                            current_node_index = *right_child_offset;
-                        } else {
-                            nodes_to_visit[to_visit_offset] = *right_child_offset;
-                            to_visit_offset += 1;
-                            current_node_index += 1;
-                        }
-                    }
-                    false => {
-                        if to_visit_offset == 0 {
-                            break;
-                        }
-                        to_visit_offset -= 1;
-                        current_node_index = nodes_to_visit[to_visit_offset];
-                    }
-                },
-                FlatBVHNode::Leaf {
-                    offset,
-                    size,
-                    bbox,
-                    axis: _,
-                } => match bbox.intersect_bool(ray, t_min, t_max) {
-                    true => {
-                        for i in *offset..(*offset + *size) {
-                            if let Some(hit) =
-                                self.ordered_objects[i].hit(ray, t_min, closest_so_far)
-                            {
-                                closest_so_far = hit.t();
-                                closest_hit = Some(hit);
+            match node.get_bbox().intersect(ray, t_min, t_max) {
+                Some((_, _)) => {
+                    match node {
+                        FlatBVHNode::Interior {
+                            right_child_offset,
+                            bbox: _,
+                            axis,
+                        } => {
+                            if dir_is_neg[*axis as usize] {
+                                nodes_to_visit[to_visit_offset] = current_node_index + 1;
+                                to_visit_offset += 1;
+                                current_node_index = *right_child_offset;
+                            } else {
+                                nodes_to_visit[to_visit_offset] = *right_child_offset;
+                                to_visit_offset += 1;
+                                current_node_index += 1;
                             }
                         }
-                        if to_visit_offset == 0 {
-                            break;
-                        }
-                        to_visit_offset -= 1;
-                        current_node_index = nodes_to_visit[to_visit_offset];
+                        FlatBVHNode::Leaf {
+                            offset,
+                            size,
+                            bbox: _,
+                        } => {
+                                for i in *offset..(*offset + *size) {
+                                    if let Some(hit) =
+                                        self.ordered_objects[i].hit(ray, t_min, closest_so_far)
+                                    {
+                                        closest_so_far = hit.t();
+                                        closest_hit = Some(hit);
+                                    }
+                                }
+                                if to_visit_offset == 0 {
+                                    break;
+                                }
+                                to_visit_offset -= 1;
+                                current_node_index = nodes_to_visit[to_visit_offset];
+                            }
+
                     }
-                    false => {
-                        if to_visit_offset == 0 {
-                            break;
-                        }
-                        to_visit_offset -= 1;
-                        current_node_index = nodes_to_visit[to_visit_offset];
+                }
+                None => {
+                    if to_visit_offset == 0 {
+                        break;
                     }
-                },
+                    to_visit_offset -= 1;
+                    current_node_index = nodes_to_visit[to_visit_offset];
+                }
             }
         }
 
