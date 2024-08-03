@@ -1,10 +1,27 @@
-use crate::materials::Material;
+use crate::materials::MaterialRef;
 use crate::objects::{HitRecord, Hittable, HittableObjects, Primitive};
 use crate::types::ray::Ray;
-use na::{center, Point3};
-use std::sync::Arc;
+use na::{center, Matrix4, Point3, Vector3};
 
 type BVHNodePtr = Box<BVHNode>;
+
+// Helper
+fn partition_mut<T, F: Fn(&T) -> bool>(items: &mut [T], start: usize, end: usize, cmp: F) -> usize {
+    let mut i = start;
+    let mut j = end - 1;
+    while i < j {
+        if !cmp(&items[j]) {
+            j -= 1;
+            continue;
+        }
+        if cmp(&items[i]) {
+            i += 1;
+            continue;
+        }
+        items.swap(i, j);
+    }
+    i + 1
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct BBox {
@@ -19,7 +36,25 @@ impl BBox {
         let min = Point3::new(a.x.min(b.x), a.y.min(b.y), a.z.min(b.z));
         let max = Point3::new(a.x.max(b.x), a.y.max(b.y), a.z.max(b.z));
 
-        Self { min, max }
+        let mut bbox = Self { min, max };
+        Self::pad(&mut bbox, 0.0001);
+        bbox
+    }
+
+    pub fn pad(bbox: &mut BBox, padding: f32) {
+        const EPS: f32 = 0.0001;
+        if (bbox.max.x - bbox.min.x).abs() < EPS {
+            bbox.min.x -= padding;
+            bbox.max.x += padding;
+        }
+        if (bbox.max.y - bbox.min.y).abs() < EPS {
+            bbox.min.y -= padding;
+            bbox.max.y += padding;
+        }
+        if (bbox.max.z - bbox.min.z).abs() < EPS {
+            bbox.min.z -= padding;
+            bbox.max.z += padding;
+        }
     }
 
     #[inline(always)]
@@ -97,7 +132,7 @@ impl BBox {
     #[inline(always)]
     pub fn get_surface_area(&self) -> f32 {
         let extent = self.max.coords - self.min.coords;
-        2.0 * extent.x * extent.y + 2.0 * extent.x * extent.z + 2.0 * extent.y * extent.z
+        extent.xxy().dot(&extent.yzz()).abs() * 2.0
     }
 
     pub fn intersect(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(f32, f32)> {
@@ -202,6 +237,49 @@ impl BBox {
             2
         }
     }
+
+    fn offset(&self, p: &Point3<f32>) -> Vector3<f32> {
+        let mut o = p - self.min;
+        if self.max.x > self.min.x {
+            o.x /= self.max.x - self.min.x;
+        }
+        if self.max.y > self.min.y {
+            o.y /= self.max.y - self.min.y;
+        }
+        if self.max.z > self.min.z {
+            o.z /= self.max.z - self.min.z;
+        }
+
+        o
+    }
+
+    pub fn transform(&self, transform: Matrix4<f32>) -> BBox {
+        let a_1 = transform.transform_point(&self.min);
+        let a_2 = transform.transform_point(&self.max);
+
+        let b_1 = transform.transform_point(&Point3::new(self.max.x, self.min.y, self.min.z));
+        let b_2 = transform.transform_point(&Point3::new(self.min.x, self.max.y, self.max.z));
+
+        let c_1 = transform.transform_point(&Point3::new(self.max.x, self.max.y, self.min.z));
+        let c_2 = transform.transform_point(&Point3::new(self.min.x, self.min.y, self.max.z));
+
+        let d_1 = transform.transform_point(&Point3::new(self.min.x, self.max.y, self.min.z));
+        let d_2 = transform.transform_point(&Point3::new(self.max.x, self.min.y, self.max.z));
+
+        BBox::new(
+            a_1,
+            a_2,
+        ).merge(&BBox::new(
+            b_1,
+            b_2
+        )).merge(&BBox::new(
+            c_1,
+            c_2
+        )).merge(&BBox::new(
+            d_1,
+            d_2
+        ))
+    }
 }
 
 pub enum SplitMethod {
@@ -227,7 +305,7 @@ impl BVHBuilder {
         let len = objects.len();
 
         BVH {
-            root: builder.build_bvh(&mut objects, 0, len),
+            root: builder.build_bvh(&mut objects, 0, len, 0),
             ordered_objects: objects,
         }
     }
@@ -235,7 +313,7 @@ impl BVHBuilder {
     pub fn build_flattened_from_hittable_objects(
         split_method: SplitMethod,
         objects: HittableObjects,
-    ) -> FlatBVH {
+    ) -> Result<FlatBVH, ()> {
         let builder = BVHBuilder {
             split_method,
             max_leaf_size: 3,
@@ -245,32 +323,32 @@ impl BVHBuilder {
         let mut objects = objects.objs_clone();
         let len = objects.len();
 
-        let root = builder.build_bvh(&mut objects, 0, len);
+        let root = builder.build_bvh(&mut objects, 0, len, 0);
         let nodes = builder.flatten_bvh(&root);
 
-        let nodes = nodes.into();
+        let nodes = nodes?.into();
 
-        FlatBVH {
+        Ok(FlatBVH {
             nodes,
             ordered_objects: objects,
-        }
+        })
     }
 
-    fn build_bvh(&self, objects: &mut Vec<Primitive>, start: usize, end: usize) -> BVHNodePtr {
+    fn build_bvh(&self, objects: &mut Vec<Primitive>, start: usize, end: usize, depth: usize) -> BVHNodePtr {
         assert!(start < end, "{} {}", start, end);
         // Compute bounds of all objects in the list
         let bbox = objects[start..end]
             .iter()
             .fold(objects[start].bbox(), |acc, obj| acc.merge(&obj.bbox()));
 
-        let axis = bbox.longest_axis();
         let size = end - start;
         // TODO: Set max leaf size.
-        match size <= self.max_leaf_size {
+        match size == 1 {
             true => {
                 BVHNode::new_leaf_as_box(start, size, bbox)
             } 
             false => {
+                let axis = bbox.longest_axis();
                 let centroid_bbox = objects[start..end].iter().fold(
                     BBox::point(objects[start].bbox().centroid()),
                     |acc, obj| acc.enclose(&obj.bbox().centroid()),
@@ -287,11 +365,9 @@ impl BVHBuilder {
 
                         start + size / 2
                     }
-                    _ => {
-                        objects[start..end].sort_by(|a, b| BBox::bbox_comp(&a.bbox(), &b.bbox(), axis));
-
+                    SplitMethod::Middle => {
                         let center = (objects[start].bbox().centroid()[axis] + objects[end-1].bbox().centroid()[axis]) / 2.0;
-                        let mid = objects[start..end].partition_point(|obj| obj.bbox().centroid()[axis] < center);
+                        let mid = partition_mut(objects, start, end, |obj| obj.bbox().centroid()[axis] < center);
                         
                         if start >= mid || mid >= end {
                             start + size / 2
@@ -299,22 +375,114 @@ impl BVHBuilder {
                             mid
                         }
                     }
+                    SplitMethod::SAH => {
+                        if size <= 2 {
+                            objects[start..end].sort_by(|a, b| BBox::bbox_comp(&a.bbox(), &b.bbox(), axis));
+                            let mid = start + size / 2;
+                            let left = self.build_bvh(objects, start, mid, depth+1);
+                            let right = self.build_bvh(objects, mid, end, depth+1);
+                            return BVHNode::new_interior_as_box(left, right, bbox, axis as u8);
+                        }
+
+                        const NUM_BUCKETS: usize = 12;
+                        type Bucket = (u32, Option<BBox>);
+                        let mut buckets: [(u32, Option<BBox>); NUM_BUCKETS] = [(0 as u32, None); NUM_BUCKETS];
+                        objects[start..end].into_iter().for_each(|obj| {
+                            assert!(0.0 <= centroid_bbox.offset(&obj.bbox().centroid())[axis] && centroid_bbox.offset(&obj.bbox().centroid())[axis] <= 1.0);
+                            let bucket_idx = (NUM_BUCKETS as f32 * centroid_bbox.offset(&obj.bbox().centroid())[axis]) as usize;
+                            let bucket_idx = bucket_idx.min(NUM_BUCKETS - 1);
+
+                            buckets[bucket_idx].0 += 1;
+                            match &mut buckets[bucket_idx].1 {
+                                Some(bbox) => {
+                                    *bbox = bbox.merge(&obj.bbox());
+                                }
+                                None => {
+                                    buckets[bucket_idx].1 = Some(obj.bbox());
+                                }
+                            }
+                        });
+
+                        let mut cost:[f32; NUM_BUCKETS - 1] = [0.0; NUM_BUCKETS - 1];
+                        let mut left_bbox: Option<BBox> = None;
+                        let mut left_count = 0;
+                        for i in 0..NUM_BUCKETS - 1 {
+                            left_bbox = match (left_bbox, buckets[i].1) {
+                                (Some(a), Some(b)) => Some(a.merge(&b)),
+                                (Some(a), None) => Some(a),
+                                (None, Some(b)) => Some(b),
+                                (None, None) => None,
+                            };
+
+                            left_count += buckets[i].0;
+                            cost[i] += left_count as f32 * match left_bbox {
+                                Some(bbox) => bbox.get_surface_area(),
+                                None => 0.0,
+                            };
+                        }
+
+                        let mut right_bbox: Option<BBox> = None;
+                        let mut right_count = 0;
+                        for i in (1..NUM_BUCKETS).rev() {
+                            right_bbox = match (right_bbox, buckets[i].1) {
+                                (Some(a), Some(b)) => Some(a.merge(&b)),
+                                (Some(a), None) => Some(a),
+                                (None, Some(b)) => Some(b),
+                                (None, None) => None,
+                            };
+
+                            right_count += buckets[i].0;
+                            cost[i - 1] += right_count as f32 * match right_bbox {
+                                Some(bbox) => bbox.get_surface_area(),
+                                None => 0.0,
+                            };
+                        }
+
+                        let mut min_cost = std::f32::INFINITY;
+                        let mut min_cost_split = NUM_BUCKETS / 2;
+                        for i in 0..NUM_BUCKETS - 1 {
+                            if cost[i] < min_cost {
+                                min_cost = cost[i];
+                                min_cost_split = i;
+                            }
+                        }
+                        
+
+                        let min_cost = 0.5 + ((size as f32 * min_cost) / bbox.get_surface_area());
+                        let leaf_cost = size as f32;
+                        if (size > self.max_leaf_size) || (min_cost < leaf_cost) {
+                            let mid = partition_mut(objects, start, end, |obj| {
+                                let bucket_idx = (NUM_BUCKETS as f32 * centroid_bbox.offset(&obj.bbox().centroid())[axis]) as usize;
+                                let bucket_idx = bucket_idx.min(NUM_BUCKETS - 1);
+                                bucket_idx <= min_cost_split
+                            });
+
+                            mid
+                        } else {
+                            return BVHNode::new_leaf_as_box(start, size, bbox);
+                        }
+                    } 
                 };
 
-                let left = self.build_bvh(objects, start, mid);
-                let right = self.build_bvh(objects, mid, end);
+                let left = self.build_bvh(objects, start, mid, depth+1);
+                let right = self.build_bvh(objects, mid, end, depth+1);
                 BVHNode::new_interior_as_box(left, right, bbox, axis as u8)
             }
         }
     }
 
-    fn flatten_bvh(&self, node: &BVHNode) -> Vec<FlatBVHNode> {
+    fn flatten_bvh(&self, node: &BVHNode) -> Result<Vec<FlatBVHNode>, ()> {
         let mut nodes: Vec<FlatBVHNode> = Vec::new();
-        self.flatten_bvh_rec(node, &mut nodes);
-        nodes
+        match self.flatten_bvh_rec(node, &mut nodes, 0) {
+            Err(_) => Err(()),
+            Ok(_) => Ok(nodes),
+        }
     }
 
-    fn flatten_bvh_rec(&self, node: &BVHNode, nodes: &mut Vec<FlatBVHNode>) {
+    fn flatten_bvh_rec(&self, node: &BVHNode, nodes: &mut Vec<FlatBVHNode>, depth: u32) -> Result<(), ()> {
+        if depth > 63 {
+            return Err(());
+        }
         match node {
             BVHNode::Interior {
                 left,
@@ -325,9 +493,9 @@ impl BVHBuilder {
                 let offset = nodes.len();
                 nodes.push(FlatBVHNode::new_interior(nodes.len() + 1, *bbox, *axis));
 
-                self.flatten_bvh_rec(left, nodes);
+                self.flatten_bvh_rec(left, nodes, depth + 1)?;
                 let right_offset = nodes.len();
-                self.flatten_bvh_rec(right, nodes);
+                self.flatten_bvh_rec(right, nodes, depth + 1)?;
 
                 match &mut nodes[offset] {
                     FlatBVHNode::Interior {
@@ -346,6 +514,7 @@ impl BVHBuilder {
                 nodes.push(FlatBVHNode::new_leaf(*start, *size, *bbox));
             }
         }
+        Ok(())
     }
 }
 
@@ -540,21 +709,23 @@ impl BVHNode {
     }
 }
 
+#[repr(align(32))]
 pub enum FlatBVHNode {
     Interior {
         right_child_offset: usize,
-        bbox: BBox,
         axis: u8,
+        bbox: BBox,
     },
     Leaf {
         offset: usize,
-        size: usize,
+        size: u16,
         bbox: BBox,
     },
 }
 
 impl FlatBVHNode {
     pub fn new_interior(right_child_offset: usize, bbox: BBox, axis: u8) -> Self {
+        let right_child_offset = right_child_offset;
         FlatBVHNode::Interior {
             right_child_offset,
             bbox,
@@ -563,6 +734,8 @@ impl FlatBVHNode {
     }
 
     pub fn new_leaf(offset: usize, size: usize, bbox: BBox) -> Self {
+        let offset = offset;
+        let size = size as u16;
         FlatBVHNode::Leaf {
             offset,
             size,
@@ -595,7 +768,7 @@ impl Hittable for BVH {
         }
         self.root.traverse(&self.ordered_objects, ray, t_min, t_max)
     }
-    fn mat(&self) -> Option<Arc<dyn Material + Sync + Send>> {
+    fn mat(&self) -> Option<MaterialRef> {
         None
     }
     fn bbox(&self) -> BBox {
@@ -614,7 +787,7 @@ impl FlatBVH {
         let mut closest_so_far = t_max;
         let mut current_node_index = 0;
         let mut to_visit_offset = 0;
-        let mut nodes_to_visit: [usize; 64] = [0; 64];
+        let mut nodes_to_visit: [usize; 1024] = [0; 1024];
 
         let dir_is_neg = [
             ray.direction.x < 0.0,
@@ -625,7 +798,7 @@ impl FlatBVH {
         // TODO: refactor into bbox aware traversal
         loop {
             let node = &self.nodes[current_node_index];
-            match node.get_bbox().intersect(ray, t_min, t_max) {
+            match node.get_bbox().intersect(ray, t_min, closest_so_far) {
                 Some((_, _)) => {
                     match node {
                         FlatBVHNode::Interior {
@@ -636,9 +809,9 @@ impl FlatBVH {
                             if dir_is_neg[*axis as usize] {
                                 nodes_to_visit[to_visit_offset] = current_node_index + 1;
                                 to_visit_offset += 1;
-                                current_node_index = *right_child_offset;
+                                current_node_index = *right_child_offset as usize;
                             } else {
-                                nodes_to_visit[to_visit_offset] = *right_child_offset;
+                                nodes_to_visit[to_visit_offset] = *right_child_offset as usize;
                                 to_visit_offset += 1;
                                 current_node_index += 1;
                             }
@@ -648,9 +821,9 @@ impl FlatBVH {
                             size,
                             bbox: _,
                         } => {
-                                for i in *offset..(*offset + *size) {
+                                for i in *offset..(*offset + (*size as usize)) {
                                     if let Some(hit) =
-                                        self.ordered_objects[i].hit(ray, t_min, closest_so_far)
+                                        self.ordered_objects[i as usize].hit(ray, t_min, closest_so_far)
                                     {
                                         closest_so_far = hit.t();
                                         closest_hit = Some(hit);
@@ -662,7 +835,6 @@ impl FlatBVH {
                                 to_visit_offset -= 1;
                                 current_node_index = nodes_to_visit[to_visit_offset];
                             }
-
                     }
                 }
                 None => {
@@ -683,7 +855,7 @@ impl Hittable for FlatBVH {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.traverse(ray, t_min, t_max)
     }
-    fn mat(&self) -> Option<Arc<dyn Material + Sync + Send>> {
+    fn mat(&self) -> Option<MaterialRef> {
         None
     }
     fn bbox(&self) -> BBox {

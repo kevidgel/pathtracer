@@ -5,12 +5,14 @@ use na::Point3;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+pub type TextureRef = Arc<dyn Texture + Send + Sync>;
+
 pub trait Texture {
     fn value(&self, u: f32, v: f32, p: &Point3<f32>) -> Color;
 }
 
 pub struct TextureRegistry {
-    textures: BTreeMap<String, Arc<dyn Texture + Send + Sync>>,
+    textures: BTreeMap<String, TextureRef>,
 }
 
 impl TextureRegistry {
@@ -20,7 +22,7 @@ impl TextureRegistry {
         }
     }
 
-    pub fn add_texture(&mut self, name: &str, texture: Arc<dyn Texture + Send + Sync>) {
+    pub fn add_texture(&mut self, name: &str, texture: TextureRef) {
         self.textures.insert(name.to_string(), texture);
     }
 
@@ -33,7 +35,7 @@ impl TextureRegistry {
         self.add_texture(name, texture);
     }
 
-    pub fn get(&self, name: &str) -> Option<Arc<dyn Texture + Send + Sync>> {
+    pub fn get(&self, name: &str) -> Option<TextureRef> {
         match self.textures.get(name) {
             Some(texture) => Some(texture.clone()),
             None => {
@@ -61,15 +63,15 @@ impl Texture for Solid {
 }
 
 pub struct Checkered {
-    odd: Arc<dyn Texture + Send + Sync>,
-    even: Arc<dyn Texture + Send + Sync>,
+    odd: TextureRef,
+    even: TextureRef,
     inv_scale: f32,
 }
 
 impl Checkered {
     pub fn new(
-        odd: Arc<dyn Texture + Send + Sync>,
-        even: Arc<dyn Texture + Send + Sync>,
+        odd: TextureRef,
+        even: TextureRef,
         inv_scale: f32,
     ) -> Self {
         Self {

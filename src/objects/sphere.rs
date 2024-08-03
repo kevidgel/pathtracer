@@ -1,16 +1,15 @@
 use crate::bvh::BBox;
-use crate::materials::Material;
+use crate::materials::MaterialRef;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};
-use std::sync::Arc;
 
 use super::HitRecord;
 
 pub struct Sphere {
     center: Point3<f32>,
     radius: f32,
-    mat: Option<Arc<dyn Material + Send + Sync>>,
+    mat: Option<MaterialRef>,
     bbox: BBox,
 }
 
@@ -18,7 +17,7 @@ impl Sphere {
     pub fn new(
         center: Point3<f32>,
         radius: f32,
-        mat: Option<Arc<dyn Material + Send + Sync>>,
+        mat: Option<MaterialRef>,
     ) -> Self {
         let rvec = Vector3::new(radius, radius, radius);
         Self {
@@ -83,7 +82,7 @@ impl Hittable for Sphere {
         Some(rec)
     }
 
-    fn mat(&self) -> Option<Arc<dyn Material + Sync + Send>> {
+    fn mat(&self) -> Option<MaterialRef> {
         self.mat.clone()
     }
 

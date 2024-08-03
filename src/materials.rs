@@ -1,13 +1,17 @@
 pub mod dielectric;
 pub mod lambertian;
 pub mod metal;
+pub mod light;
 
 use crate::objects::HitRecord;
+use crate::types::color::ColorOps;
 use crate::types::{color::Color, ray::Ray};
-use na::Vector3;
+use na::{Vector3, Point3};
 use rand::rngs::ThreadRng;
 use std::collections::BTreeMap;
 use std::sync::Arc;
+
+pub type MaterialRef = Arc<dyn Material + Send + Sync>;
 
 pub fn reflect(v: &Vector3<f32>, n: &Vector3<f32>) -> Vector3<f32> {
     v - 2.0 * v.dot(n) * n
@@ -21,11 +25,14 @@ pub fn refract(uv: &Vector3<f32>, n: &Vector3<f32>, etai_over_etat: f32) -> Vect
 }
 
 pub trait Material {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> (Color, Ray);
+    fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)>;
+    fn emitted(&self, _u: f32, _v: f32, _p: &Point3<f32>) -> Color {
+        Color::gray(0.0)
+    }
 }
 
 pub struct MaterialRegistry {
-    materials: BTreeMap<String, Arc<dyn Material + Send + Sync>>,
+    materials: BTreeMap<String, MaterialRef>,
 }
 
 impl MaterialRegistry {
@@ -35,7 +42,7 @@ impl MaterialRegistry {
         }
     }
 
-    pub fn add_material(&mut self, name: &str, material: Arc<dyn Material + Send + Sync>) {
+    pub fn add_material(&mut self, name: &str, material: MaterialRef) {
         self.materials.insert(name.to_string(), material);
     }
 
@@ -44,11 +51,11 @@ impl MaterialRegistry {
         name: &str,
         material: impl Material + std::marker::Send + std::marker::Sync + 'static,
     ) {
-        let material: Arc<dyn Material + Sync + Send> = Arc::new(material);
+        let material: MaterialRef = Arc::new(material);
         self.add_material(name, material);
     }
 
-    pub fn get(&self, name: &str) -> Option<Arc<dyn Material + Send + Sync>> {
+    pub fn get(&self, name: &str) -> Option<MaterialRef> {
         match self.materials.get(name) {
             Some(material) => Some(material.clone()),
             None => {

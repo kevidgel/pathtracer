@@ -1,7 +1,7 @@
 use super::Material;
 use crate::objects::HitRecord;
 use crate::textures::Solid;
-use crate::textures::Texture;
+use crate::textures::TextureRef;
 use crate::types::color::ColorOps;
 use crate::types::sampler::{Sampler, SphereSampler};
 use crate::types::{color::Color, ray::Ray};
@@ -9,7 +9,7 @@ use rand::rngs::ThreadRng;
 use std::sync::Arc;
 
 pub struct Lambertian {
-    texture: Arc<dyn Texture + Send + Sync>,
+    texture: TextureRef,
 }
 
 impl Lambertian {
@@ -19,7 +19,7 @@ impl Lambertian {
         }
     }
 
-    pub fn new_texture(texture: Option<Arc<dyn Texture + Send + Sync>>) -> Self {
+    pub fn new_texture(texture: Option<TextureRef>) -> Self {
         Self {
             texture: texture.unwrap_or(Arc::new(Solid::new(Color::gray(0.5)))),
         }
@@ -27,7 +27,7 @@ impl Lambertian {
 }
 
 impl Material for Lambertian {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, _ray_in: &Ray, rec: &HitRecord) -> (Color, Ray) {
+    fn scatter(&self, rng: Option<&mut ThreadRng>, _ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)> {
         let sampler = SphereSampler::unit();
 
         let rng = match rng {
@@ -39,9 +39,10 @@ impl Material for Lambertian {
         let scatter_direction = rec.normal() + sampler.sample(rng).normalize();
 
         // Reject small offsets
-        let scattered: Ray = match scatter_direction.x < f32::EPSILON
-            && scatter_direction.y < f32::EPSILON
-            && scatter_direction.z < f32::EPSILON
+        const EPSILON: f32 = 0.0001;
+        let scattered: Ray = match scatter_direction.x < EPSILON
+            && scatter_direction.y < EPSILON
+            && scatter_direction.z < EPSILON
         {
             true => Ray::new(rec.p(), rec.normal()),
             false => Ray::new(rec.p(), scatter_direction),
@@ -51,7 +52,7 @@ impl Material for Lambertian {
 
         let attenuation = self.texture.value(rec.u(), rec.v(), &rec.p());
 
-        (attenuation, scattered)
+        Some((attenuation, scattered))
     }
 }
 
@@ -66,7 +67,7 @@ impl Diffuse {
 }
 
 impl Material for Diffuse {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, _ray_in: &Ray, rec: &HitRecord) -> (Color, Ray) {
+    fn scatter(&self, rng: Option<&mut ThreadRng>, _ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)> {
         let sampler = SphereSampler::unit();
 
         let rng = match rng {
@@ -88,6 +89,6 @@ impl Material for Diffuse {
         // Attenuation
         let attenuation = self.albedo;
 
-        (attenuation, scattered)
+        Some((attenuation, scattered))
     }
 }

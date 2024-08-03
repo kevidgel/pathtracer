@@ -8,11 +8,12 @@ use crate::{
     Hittable,
 };
 use image::{ImageBuffer, RgbImage};
-use indicatif::ParallelProgressIterator;
+use indicatif::{ParallelProgressIterator, ProgressState, ProgressStyle};
 use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::cmp;
+use std::fmt::Write;
 
 pub struct CameraConfig {
     pub aspect_ratio: f32,
@@ -24,6 +25,7 @@ pub struct CameraConfig {
     pub defocus_angle: f32,
     pub spp: u32,
     pub max_depth: u32,
+    pub background: Color,
 }
 
 pub struct Camera {
@@ -43,6 +45,8 @@ pub struct Camera {
 
     spp: u32,
     max_depth: u32,
+
+    background: Color,
 }
 
 impl Camera {
@@ -57,6 +61,7 @@ impl Camera {
             cfg.defocus_angle,
             cfg.spp,
             cfg.max_depth,
+            cfg.background,
         )
     }
 
@@ -70,6 +75,7 @@ impl Camera {
         defocus_angle: f32,
         spp: u32,
         max_depth: u32,
+        background: Color,
     ) -> Self {
         let image_height = cmp::max(1_u32, (image_width as f32 / aspect_ratio) as u32);
         let theta = vfov.to_radians();
@@ -115,6 +121,7 @@ impl Camera {
             pixel_dv,
             spp,
             max_depth,
+            background,
         }
     }
 
@@ -129,10 +136,15 @@ impl Camera {
         buffer
             .par_enumerate_pixels_mut()
             .progress_count(len)
+            .with_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {percent}% ({eta})")
+                .unwrap()
+                .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+                .progress_chars("#>-"))
             .for_each(|(u, v, pixel)| {
-                let mut rng = rand::thread_rng();
                 let pixel_color: Color = (0..self.spp)
+                    .into_par_iter()
                     .map(|_| -> Color {
+                        let mut rng = rand::thread_rng();
                         let ray = self.get_ray(&mut rng, u as f32, v as f32);
                         self.ray_color(&mut rng, &ray, objects, self.max_depth)
                     })
@@ -179,21 +191,26 @@ impl Camera {
             Some(rec) => {
                 match rec.material() {
                     Some(material) => {
-                        let (throughput, next_ray) = material.scatter(Some(rng), ray, &rec);
-                        throughput.component_mul(&self.ray_color(
-                            rng,
-                            &next_ray,
-                            objects,
-                            max_depth - 1,
-                        ))
+                        let emitted = material.emitted(rec.u(), rec.v(), &rec.p());
+                        match material.scatter(Some(rng), ray, &rec) {
+                            Some((attenuation, scattered)) => {
+                                emitted + attenuation.component_mul(&self.ray_color(
+                                    rng,
+                                    &scattered,
+                                    objects,
+                                    max_depth - 1,
+                                ))
+                            }
+                            None => emitted,
+                        }
+                        
                     }
                     // Unknown material
                     None => Color::zeros(),
                 }
             }
             None => {
-                let a = 0.5_f32 * (ray.direction.y + 1.0);
-                (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
+                self.background
             }
         }
     }

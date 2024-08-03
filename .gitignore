@@ -5,3 +5,4 @@
 *.obj
 *.mtl
 !day3.png
+.DS_Store

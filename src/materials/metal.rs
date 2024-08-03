@@ -24,7 +24,7 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> (Color, Ray) {
+    fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)> {
         let fuzz: Vector3<f32> = if self.fuzz > 0.0 {
             match rng {
                 Some(rng) => {
@@ -40,6 +40,6 @@ impl Material for Metal {
         let reflected = reflect(&ray_in.direction.normalize(), &rec.normal()) + fuzz;
         let scattered = Ray::new(rec.p(), reflected);
         let attenuation = self.albedo;
-        (attenuation, scattered)
+        Some((attenuation, scattered))
     }
 }
