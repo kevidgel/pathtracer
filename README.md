@@ -23,6 +23,7 @@ TODO:
 - Support loading/writing materials, objects, etc from config files
 - why are my lambertian boxes reflective??
 - instance contents currently aren't bvh'ed.
+- lol i just realized vtables r probably cache thrashing
 
 TODO LATER: 
 - gui
