@@ -1,11 +1,11 @@
 use super::Material;
-use crate::textures::{TextureRef, Solid};
-use crate::types::color::{Color, ColorOps};
-use std::sync::Arc;
-use na::Point3;
-use crate::types::ray::Ray;
-use rand::rngs::ThreadRng;
 use crate::objects::HitRecord;
+use crate::textures::{Solid, TextureRef};
+use crate::types::color::{Color, ColorOps};
+use crate::types::ray::Ray;
+use na::Point3;
+use rand::rngs::ThreadRng;
+use std::sync::Arc;
 
 pub struct Diffuse {
     texture: TextureRef,
@@ -32,7 +32,12 @@ impl Diffuse {
 }
 
 impl Material for Diffuse {
-    fn scatter(&self, _rng: Option<&mut ThreadRng>, _ray_in: &Ray, _rec: &HitRecord) -> Option<(Color, Ray)> {
+    fn scatter(
+        &self,
+        _rng: Option<&mut ThreadRng>,
+        _ray_in: &Ray,
+        _rec: &HitRecord,
+    ) -> Option<(Color, Ray)> {
         None
     }
 

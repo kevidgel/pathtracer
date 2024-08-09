@@ -136,10 +136,16 @@ impl Camera {
         buffer
             .par_enumerate_pixels_mut()
             .progress_count(len)
-            .with_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {percent}% ({eta})")
+            .with_style(
+                ProgressStyle::with_template(
+                    "[{elapsed_precise}] [{wide_bar:.cyan/blue}] {percent}% ({eta})",
+                )
                 .unwrap()
-                .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-                .progress_chars("#>-"))
+                .with_key("eta", |state: &ProgressState, w: &mut dyn Write| {
+                    write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+                })
+                .progress_chars("#>-"),
+            )
             .for_each(|(u, v, pixel)| {
                 let pixel_color: Color = (0..self.spp)
                     .into_par_iter()
@@ -194,24 +200,22 @@ impl Camera {
                         let emitted = material.emitted(rec.u(), rec.v(), &rec.p());
                         match material.scatter(Some(rng), ray, &rec) {
                             Some((attenuation, scattered)) => {
-                                emitted + attenuation.component_mul(&self.ray_color(
-                                    rng,
-                                    &scattered,
-                                    objects,
-                                    max_depth - 1,
-                                ))
+                                emitted
+                                    + attenuation.component_mul(&self.ray_color(
+                                        rng,
+                                        &scattered,
+                                        objects,
+                                        max_depth - 1,
+                                    ))
                             }
                             None => emitted,
                         }
-                        
                     }
                     // Unknown material
                     None => Color::zeros(),
                 }
             }
-            None => {
-                self.background
-            }
+            None => self.background,
         }
     }
 }

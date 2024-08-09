@@ -6,13 +6,13 @@ mod camera;
 mod config;
 mod materials;
 mod objects;
+mod scenes;
 mod textures;
 mod types;
-mod scenes;
 
 use bvh::{BVHBuilder, SplitMethod};
 use objects::Hittable;
-use scenes::{Scene, lucy, cornell};
+use scenes::{cornell, lucy, Scene};
 
 fn main() {
     env_logger::builder()
@@ -21,15 +21,15 @@ fn main() {
 
     log::info!("Building scene...");
     let now = std::time::SystemTime::now();
-    let camera = cornell::Cornell::build_camera();
-    let objects = cornell::Cornell::build_scene();
-    // let objects = match objects {
-    //     Ok(objects) => objects,
-    //     _ => {
-    //         log::error!("Failed to build BVH");
-    //         return;
-    //     }
-    // };
+    let camera = lucy::Lucy::build_camera();
+    let objects = lucy::Lucy::build_scene_flat_bvh();
+    let objects = match objects {
+        Ok(objects) => objects,
+        _ => {
+            log::error!("Failed to build BVH");
+            return;
+        }
+    };
 
     let build_elapsed = match now.elapsed() {
         Ok(elapsed) => elapsed,
@@ -52,5 +52,9 @@ fn main() {
 
     buffer.save("test.png").unwrap();
 
-    log::info!("Done. Build time: {:?}. Render time: {:?}", build_elapsed, render_elapsed);
+    log::info!(
+        "Done. Build time: {:?}. Render time: {:?}",
+        build_elapsed,
+        render_elapsed
+    );
 }

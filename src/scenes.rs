@@ -1,4 +1,4 @@
-use crate::bvh::{BVH, BVHBuilder, FlatBVH, SplitMethod};
+use crate::bvh::{BVHBuilder, FlatBVH, SplitMethod, BVH};
 use crate::camera::Camera;
 use crate::objects::HittableObjects;
 

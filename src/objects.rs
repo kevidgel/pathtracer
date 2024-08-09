@@ -1,6 +1,6 @@
+pub mod quad_mesh;
 pub mod sphere;
 pub mod tri_mesh;
-pub mod quad_mesh;
 
 use crate::bvh::BBox;
 use crate::materials::MaterialRef;
@@ -136,7 +136,6 @@ impl HittableObjects {
 impl Hittable for HittableObjects {
     // Ideally we replace this with spatial data structure
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-
         let mut rec: Option<HitRecord> = None;
         let mut closest_so_far = t_max;
         for obj in &self.objs {
@@ -158,9 +157,9 @@ impl Hittable for HittableObjects {
 }
 
 pub struct Instance {
-    obj: Primitive, 
+    obj: Primitive,
     transform: Matrix4<f32>,
-    inverse: Matrix4<f32>
+    inverse: Matrix4<f32>,
 }
 
 impl Instance {
@@ -169,7 +168,7 @@ impl Instance {
         Ok(Instance {
             obj,
             transform,
-            inverse
+            inverse,
         })
     }
 
@@ -177,7 +176,7 @@ impl Instance {
         Instance {
             obj,
             transform: Matrix4::identity(),
-            inverse: Matrix4::identity()
+            inverse: Matrix4::identity(),
         }
     }
 
@@ -223,22 +222,33 @@ impl Instance {
 
     pub fn scale(&mut self, scale: Vector3<f32>) {
         self.transform = Matrix4::new_nonuniform_scaling(&scale) * self.transform;
-        self.inverse = self.inverse * Matrix4::new_nonuniform_scaling(&Vector3::new(1.0 / scale.x, 1.0 / scale.y, 1.0 / scale.z));
+        self.inverse = self.inverse
+            * Matrix4::new_nonuniform_scaling(&Vector3::new(
+                1.0 / scale.x,
+                1.0 / scale.y,
+                1.0 / scale.z,
+            ));
     }
 
     pub fn scale_x(&mut self, x: f32) {
-        self.transform = Matrix4::new_nonuniform_scaling(&Vector3::new(x, 1.0, 1.0)) * self.transform;
-        self.inverse = self.inverse * Matrix4::new_nonuniform_scaling(&Vector3::new(1.0 / x, 1.0, 1.0));
+        self.transform =
+            Matrix4::new_nonuniform_scaling(&Vector3::new(x, 1.0, 1.0)) * self.transform;
+        self.inverse =
+            self.inverse * Matrix4::new_nonuniform_scaling(&Vector3::new(1.0 / x, 1.0, 1.0));
     }
 
     pub fn scale_y(&mut self, y: f32) {
-        self.transform = Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, y, 1.0)) * self.transform;
-        self.inverse = self.inverse * Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0 / y, 1.0));
+        self.transform =
+            Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, y, 1.0)) * self.transform;
+        self.inverse =
+            self.inverse * Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0 / y, 1.0));
     }
 
     pub fn scale_z(&mut self, z: f32) {
-        self.transform = Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0, z)) * self.transform;
-        self.inverse = self.inverse * Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0, 1.0 / z));
+        self.transform =
+            Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0, z)) * self.transform;
+        self.inverse =
+            self.inverse * Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0, 1.0 / z));
     }
 
     pub fn scale_uniform(&mut self, scale: f32) {
@@ -257,7 +267,7 @@ impl Hittable for Instance {
             Some(mut rec) => {
                 rec.p = self.transform.transform_point(&rec.p);
                 rec.normal = self.transform.transform_vector(&rec.normal);
-                
+
                 Some(rec)
             }
             None => None,

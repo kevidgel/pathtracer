@@ -27,7 +27,12 @@ impl Lambertian {
 }
 
 impl Material for Lambertian {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, _ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)> {
+    fn scatter(
+        &self,
+        rng: Option<&mut ThreadRng>,
+        _ray_in: &Ray,
+        rec: &HitRecord,
+    ) -> Option<(Color, Ray)> {
         let sampler = SphereSampler::unit();
 
         let rng = match rng {
@@ -67,7 +72,12 @@ impl Diffuse {
 }
 
 impl Material for Diffuse {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, _ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)> {
+    fn scatter(
+        &self,
+        rng: Option<&mut ThreadRng>,
+        _ray_in: &Ray,
+        rec: &HitRecord,
+    ) -> Option<(Color, Ray)> {
         let sampler = SphereSampler::unit();
 
         let rng = match rng {

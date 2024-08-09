@@ -2,9 +2,13 @@ use std::sync::Arc;
 
 use na::Point3;
 
-use crate::{camera::Camera, materials::{dielectric::Dielectric, light::Diffuse, metal::Metal, MaterialRegistry}, objects::{sphere::Sphere, tri_mesh::TriMesh, HittableObjects}};
 use super::Scene;
 use crate::types::color::{Color, ColorOps};
+use crate::{
+    camera::Camera,
+    materials::{dielectric::Dielectric, light::Diffuse, metal::Metal, MaterialRegistry},
+    objects::{sphere::Sphere, tri_mesh::TriMesh, HittableObjects},
+};
 
 pub struct Lucy;
 
@@ -23,13 +27,9 @@ impl Scene for Lucy {
             1000_f32,
             materials.get("ground"),
         );
-        
-        let light = Sphere::new(
-            Point3::new(0.7, 2.3, 1.0),
-            0.9,
-            materials.get("emit"),
-        );
-    
+
+        let light = Sphere::new(Point3::new(0.7, 2.3, 1.0), 0.9, materials.get("emit"));
+
         objects.add(Arc::new(light));
         objects.add(Arc::new(ground));
 
@@ -51,7 +51,7 @@ impl Scene for Lucy {
         let look_at = Point3::new(0_f32, 0.4_f32, 0_f32);
         let focal_length = 10_f32;
         let defocus_angle = 0_f32;
-        let spp = 256_u32;
+        let spp = 512_u32;
         let max_depth = 16_u32;
         let camera = Camera::new(
             aspect_ratio,

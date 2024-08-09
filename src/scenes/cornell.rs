@@ -2,10 +2,14 @@ use std::sync::Arc;
 
 use na::{Point3, Vector3};
 
-use crate::{camera::Camera, materials::{lambertian::Lambertian, light::Diffuse, MaterialRegistry}, objects::{quad_mesh::Quad, HittableObjects, Primitive}};
 use super::Scene;
-use crate::types::color::{Color, ColorOps};
 use crate::objects::Instance;
+use crate::types::color::{Color, ColorOps};
+use crate::{
+    camera::Camera,
+    materials::{lambertian::Lambertian, light::Diffuse, MaterialRegistry},
+    objects::{quad_mesh::Quad, HittableObjects, Primitive},
+};
 
 pub struct Cornell;
 
@@ -15,7 +19,7 @@ impl Scene for Cornell {
             1.0,
             600,
             40.0,
-            Point3::new(278.0 , 278.0, -800.0),
+            Point3::new(278.0, 278.0, -800.0),
             Point3::new(278.0, 278.0, 0.0),
             1.0,
             0.0,
@@ -32,7 +36,7 @@ impl Scene for Cornell {
         materials.create_material("red", Lambertian::new(Color::new(0.65, 0.05, 0.05)));
         materials.create_material("white", Lambertian::new(Color::gray(0.73)));
         materials.create_material("green", Lambertian::new(Color::new(0.12, 0.45, 0.15)));
-        materials.create_material("light",  Diffuse::new(Color::gray(15.0)));
+        materials.create_material("light", Diffuse::new(Color::gray(15.0)));
 
         objects.add(Arc::new(Quad::new(
             &Point3::new(555.0, 0.0, 0.0),
@@ -91,11 +95,11 @@ impl Scene for Cornell {
         let mut box1 = Instance::from_obj(Arc::new(box1) as Primitive);
         box1.rotate_y(15.0_f32.to_radians());
         box1.translate(Vector3::new(265.0, 0.0, 295.0));
-        
+
         let mut box2 = Instance::from_obj(Arc::new(box2) as Primitive);
         box2.rotate_y(-18.0_f32.to_radians());
         box2.translate(Vector3::new(130.0, 0.0, 65.0));
-        
+
         objects.add(Arc::new(box1));
         objects.add(Arc::new(box2));
 

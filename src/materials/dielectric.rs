@@ -22,7 +22,12 @@ impl Dielectric {
 }
 
 impl Material for Dielectric {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)> {
+    fn scatter(
+        &self,
+        rng: Option<&mut ThreadRng>,
+        ray_in: &Ray,
+        rec: &HitRecord,
+    ) -> Option<(Color, Ray)> {
         let attenuation = Color::gray(1.0_f32);
         let ri: f32 = if rec.front_face() {
             1.0 / self.ref_idx

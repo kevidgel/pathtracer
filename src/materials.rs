@@ -1,12 +1,12 @@
 pub mod dielectric;
 pub mod lambertian;
-pub mod metal;
 pub mod light;
+pub mod metal;
 
 use crate::objects::HitRecord;
 use crate::types::color::ColorOps;
 use crate::types::{color::Color, ray::Ray};
-use na::{Vector3, Point3};
+use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -25,7 +25,12 @@ pub fn refract(uv: &Vector3<f32>, n: &Vector3<f32>, etai_over_etat: f32) -> Vect
 }
 
 pub trait Material {
-    fn scatter(&self, rng: Option<&mut ThreadRng>, ray_in: &Ray, rec: &HitRecord) -> Option<(Color, Ray)>;
+    fn scatter(
+        &self,
+        rng: Option<&mut ThreadRng>,
+        ray_in: &Ray,
+        rec: &HitRecord,
+    ) -> Option<(Color, Ray)>;
     fn emitted(&self, _u: f32, _v: f32, _p: &Point3<f32>) -> Color {
         Color::gray(0.0)
     }

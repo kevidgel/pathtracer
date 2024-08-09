@@ -14,11 +14,7 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(
-        center: Point3<f32>,
-        radius: f32,
-        mat: Option<MaterialRef>,
-    ) -> Self {
+    pub fn new(center: Point3<f32>, radius: f32, mat: Option<MaterialRef>) -> Self {
         let rvec = Vector3::new(radius, radius, radius);
         Self {
             center,

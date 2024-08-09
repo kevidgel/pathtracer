@@ -69,11 +69,7 @@ pub struct Checkered {
 }
 
 impl Checkered {
-    pub fn new(
-        odd: TextureRef,
-        even: TextureRef,
-        inv_scale: f32,
-    ) -> Self {
+    pub fn new(odd: TextureRef, even: TextureRef, inv_scale: f32) -> Self {
         Self {
             odd,
             even,

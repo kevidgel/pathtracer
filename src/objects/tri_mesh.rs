@@ -6,7 +6,7 @@ use crate::bvh::BBox;
 use crate::materials::MaterialRef;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
-use na::{Point2, Point3, Vector3, Matrix, U8, U3, U1, ArrayStorage};
+use na::{ArrayStorage, Matrix, Point2, Point3, Vector3, U1, U3, U8};
 use tobj;
 
 use super::HitRecord;
@@ -44,42 +44,77 @@ impl Triangle {
         ]);
 
         let data: TriangleData = TriangleData::from_row_slice(&[
-            vertices[0].x, vertices[1].x, vertices[2].x,
-            vertices[0].y, vertices[1].y, vertices[2].y,
-            vertices[0].z, vertices[1].z, vertices[2].z,
-            normals[0].x, normals[1].x, normals[2].x,
-            normals[0].y, normals[1].y, normals[2].y,
-            normals[0].z, normals[1].z, normals[2].z,
-            texture_uv[0].x, texture_uv[1].x, texture_uv[2].x,
-            texture_uv[0].y, texture_uv[1].y, texture_uv[2].y,
+            vertices[0].x,
+            vertices[1].x,
+            vertices[2].x,
+            vertices[0].y,
+            vertices[1].y,
+            vertices[2].y,
+            vertices[0].z,
+            vertices[1].z,
+            vertices[2].z,
+            normals[0].x,
+            normals[1].x,
+            normals[2].x,
+            normals[0].y,
+            normals[1].y,
+            normals[2].y,
+            normals[0].z,
+            normals[1].z,
+            normals[2].z,
+            texture_uv[0].x,
+            texture_uv[1].x,
+            texture_uv[2].x,
+            texture_uv[0].y,
+            texture_uv[1].y,
+            texture_uv[2].y,
         ]);
 
-        Self {
-            data,
-            material,
-        }
+        Self { data, material }
     }
 
-    pub fn new_from_vertex(a: &Vertex, b: &Vertex, c: &Vertex, material: Option<MaterialRef>) -> Self {
+    pub fn new_from_vertex(
+        a: &Vertex,
+        b: &Vertex,
+        c: &Vertex,
+        material: Option<MaterialRef>,
+    ) -> Self {
         let data: TriangleData = TriangleData::from_row_slice(&[
-            a.position().x, b.position().x, c.position().x,
-            a.position().y, b.position().y, c.position().y,
-            a.position().z, b.position().z, c.position().z,
-            a.normal().x, b.normal().x, c.normal().x,
-            a.normal().y, b.normal().y, c.normal().y,
-            a.normal().z, b.normal().z, c.normal().z,
-            a.uv().x, b.uv().x, c.uv().x,
-            a.uv().y, b.uv().y, c.uv().y,
+            a.position().x,
+            b.position().x,
+            c.position().x,
+            a.position().y,
+            b.position().y,
+            c.position().y,
+            a.position().z,
+            b.position().z,
+            c.position().z,
+            a.normal().x,
+            b.normal().x,
+            c.normal().x,
+            a.normal().y,
+            b.normal().y,
+            c.normal().y,
+            a.normal().z,
+            b.normal().z,
+            c.normal().z,
+            a.uv().x,
+            b.uv().x,
+            c.uv().x,
+            a.uv().y,
+            b.uv().y,
+            c.uv().y,
         ]);
 
-        Self {
-            data,
-            material
-        }
+        Self { data, material }
     }
 
     pub fn position(&self, vertex: usize) -> Point3<f32> {
-        Point3::new(self.data[(0, vertex)], self.data[(1, vertex)], self.data[(2, vertex)])
+        Point3::new(
+            self.data[(0, vertex)],
+            self.data[(1, vertex)],
+            self.data[(2, vertex)],
+        )
     }
 
     pub fn normal(&self, vertex: usize) -> Vector3<f32> {
@@ -95,7 +130,9 @@ impl Triangle {
     }
 
     pub fn bary_interpolate(&self, bary_coords: &Vector3<f32>) -> Vertex {
-        Vertex { data: &self.data * bary_coords }
+        Vertex {
+            data: &self.data * bary_coords,
+        }
     }
 }
 
@@ -106,14 +143,7 @@ pub struct Vertex {
 impl Vertex {
     pub fn new(position: Point3<f32>, normal: Vector3<f32>, uv: Point2<f32>) -> Self {
         let data: VertexData = VertexData::from_row_slice(&[
-            position.x,
-            position.y,
-            position.z,
-            normal.x,
-            normal.y,
-            normal.z,
-            uv.x,
-            uv.y,
+            position.x, position.y, position.z, normal.x, normal.y, normal.z, uv.x, uv.y,
         ]);
 
         Self { data }
@@ -138,13 +168,13 @@ impl Hittable for Triangle {
         let v0 = &self.position(0);
         let v1 = &self.position(1);
         let v2 = &self.position(2);
-        
+
         let e1 = v1 - v0;
         let e2 = v2 - v0;
         let d = &ray.direction;
 
         let e1_x_d = &e1.cross(&d);
-        
+
         let triple = (&e1_x_d).dot(&e2);
         if triple == 0.0 {
             return None;
@@ -356,10 +386,7 @@ impl TriMesh {
             .collect()
     }
 
-    pub fn to_triangles_with_mat(
-        &self,
-        material: MaterialRef,
-    ) -> Vec<Triangle> {
+    pub fn to_triangles_with_mat(&self, material: MaterialRef) -> Vec<Triangle> {
         let range = self.positions.1.len();
 
         (0..range)

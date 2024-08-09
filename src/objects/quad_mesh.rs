@@ -21,16 +21,15 @@ pub struct Quad {
 }
 
 impl Quad {
-    pub fn new(origin: &Point3<f32>, u: &Vector3<f32>, v: &Vector3<f32>, mat: Option<MaterialRef>) -> Self {
-        let bbox_diag1 = BBox::new(
-            *origin,
-            origin + u + v,
-        );
+    pub fn new(
+        origin: &Point3<f32>,
+        u: &Vector3<f32>,
+        v: &Vector3<f32>,
+        mat: Option<MaterialRef>,
+    ) -> Self {
+        let bbox_diag1 = BBox::new(*origin, origin + u + v);
 
-        let bbox_diag2 = BBox::new(
-            origin + u,
-            origin + v,
-        );
+        let bbox_diag2 = BBox::new(origin + u, origin + v);
         let bbox = bbox_diag1.merge(&bbox_diag2);
 
         let n = u.cross(&v);
@@ -59,12 +58,42 @@ impl Quad {
         let dy = Vector3::new(0.0, max.y - min.y, 0.0);
         let dz = Vector3::new(0.0, 0.0, max.z - min.z);
 
-        sides.add(Arc::new(Quad::new(&Point3::new(min.x, min.y, max.z), &dx, &dy, mat.clone())) as Primitive);
-        sides.add(Arc::new(Quad::new(&Point3::new(max.x, min.y, max.z), &-dz, &dy, mat.clone())) as Primitive);
-        sides.add(Arc::new(Quad::new(&Point3::new(max.x, min.y, min.z), &-dx, &dy, mat.clone())) as Primitive);
-        sides.add(Arc::new(Quad::new(&Point3::new(min.x, min.y, min.z), &dz, &dy, mat.clone())) as Primitive);
-        sides.add(Arc::new(Quad::new(&Point3::new(min.x, max.y, max.z), &dx, &-dz, mat.clone())) as Primitive);
-        sides.add(Arc::new(Quad::new(&Point3::new(min.x, min.y, min.z), &dx, &dz, mat.clone())) as Primitive);
+        sides.add(Arc::new(Quad::new(
+            &Point3::new(min.x, min.y, max.z),
+            &dx,
+            &dy,
+            mat.clone(),
+        )) as Primitive);
+        sides.add(Arc::new(Quad::new(
+            &Point3::new(max.x, min.y, max.z),
+            &-dz,
+            &dy,
+            mat.clone(),
+        )) as Primitive);
+        sides.add(Arc::new(Quad::new(
+            &Point3::new(max.x, min.y, min.z),
+            &-dx,
+            &dy,
+            mat.clone(),
+        )) as Primitive);
+        sides.add(Arc::new(Quad::new(
+            &Point3::new(min.x, min.y, min.z),
+            &dz,
+            &dy,
+            mat.clone(),
+        )) as Primitive);
+        sides.add(Arc::new(Quad::new(
+            &Point3::new(min.x, max.y, max.z),
+            &dx,
+            &-dz,
+            mat.clone(),
+        )) as Primitive);
+        sides.add(Arc::new(Quad::new(
+            &Point3::new(min.x, min.y, min.z),
+            &dx,
+            &dz,
+            mat.clone(),
+        )) as Primitive);
 
         sides
     }
@@ -99,7 +128,7 @@ impl Hittable for Quad {
             t,
             self.mat.clone(),
             alpha,
-            beta
+            beta,
         ))
     }
     fn bbox(&self) -> BBox {
