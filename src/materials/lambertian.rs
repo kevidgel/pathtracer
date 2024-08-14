@@ -45,9 +45,9 @@ impl Material for Lambertian {
 
         // Reject small offsets
         const EPSILON: f32 = 0.0001;
-        let scattered: Ray = match scatter_direction.x < EPSILON
-            && scatter_direction.y < EPSILON
-            && scatter_direction.z < EPSILON
+        let scattered: Ray = match scatter_direction.x.abs() < EPSILON
+            && scatter_direction.y.abs() < EPSILON
+            && scatter_direction.z.abs() < EPSILON
         {
             true => Ray::new(rec.p(), rec.normal()),
             false => Ray::new(rec.p(), scatter_direction),

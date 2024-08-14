@@ -3,7 +3,7 @@ use na::{Point3, Vector3};
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
     pub origin: Point3<f32>,
-    pub direction: Vector3<f32>,
+    pub direction: Vector3<f32>
 }
 
 impl Ray {

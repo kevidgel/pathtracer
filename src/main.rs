@@ -21,8 +21,8 @@ fn main() {
 
     log::info!("Building scene...");
     let now = std::time::SystemTime::now();
-    let camera = lucy::Lucy::build_camera();
-    let objects = lucy::Lucy::build_scene_flat_bvh();
+    let camera = cornell::Cornell::build_camera();
+    let objects = cornell::Cornell::build_scene_flat_bvh();
     let objects = match objects {
         Ok(objects) => objects,
         _ => {

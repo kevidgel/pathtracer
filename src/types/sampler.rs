@@ -93,7 +93,7 @@ impl Sampler<Vector3<f32>> for SphereSampler {
         let z = rng.gen_range(-1.0..1.0);
 
         let sample: Vector3<f32> = Vector3::new(x, y, z);
-        if sample.norm() < 1.0 {
+        if sample.norm_squared() < 1.0 {
             sample * self.radius + self.center
         } else {
             self.sample(rng)

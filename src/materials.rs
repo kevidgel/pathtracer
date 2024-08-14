@@ -32,7 +32,7 @@ pub trait Material {
         rec: &HitRecord,
     ) -> Option<(Color, Ray)>;
     fn emitted(&self, _u: f32, _v: f32, _p: &Point3<f32>) -> Color {
-        Color::gray(0.0)
+        Color::zeros()
     }
 }
 

@@ -6,7 +6,7 @@ use crate::objects::Hittable;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};
 
-use super::{HitRecord, HittableObjects, Primitive};
+use super::{tri_mesh::Triangle, HitRecord, HittableObjects, Primitive};
 
 #[derive(Clone)]
 pub struct Quad {
@@ -96,6 +96,26 @@ impl Quad {
         )) as Primitive);
 
         sides
+    }
+
+    pub fn to_triangles(&self) -> Vec<Primitive> {
+        let t1 = Triangle::new(
+            [self.origin,
+            self.origin + self.u,
+            self.origin + self.v],
+            None,
+            None,
+            self.mat.clone(),
+        );
+        let t2 = Triangle::new(
+            [self.origin + self.u,
+            self.origin + self.u + self.v,
+            self.origin + self.v],
+            None,
+            None,
+            self.mat.clone(),
+        );
+        vec![Arc::new(t1), Arc::new(t2)]
     }
 }
 

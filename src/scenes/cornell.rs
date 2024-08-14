@@ -7,7 +7,7 @@ use crate::objects::Instance;
 use crate::types::color::{Color, ColorOps};
 use crate::{
     camera::Camera,
-    materials::{lambertian::Lambertian, light::Diffuse, MaterialRegistry},
+    materials::{lambertian::Lambertian, light::Diffuse, metal::Metal, MaterialRegistry},
     objects::{quad_mesh::Quad, HittableObjects, Primitive},
 };
 
@@ -23,7 +23,7 @@ impl Scene for Cornell {
             Point3::new(278.0, 278.0, 0.0),
             1.0,
             0.0,
-            1024,
+            1000,
             16,
             Color::gray(0.0),
         )
@@ -34,51 +34,59 @@ impl Scene for Cornell {
         let mut materials = MaterialRegistry::new();
 
         materials.create_material("red", Lambertian::new(Color::new(0.65, 0.05, 0.05)));
+        materials.create_material("mirror", Metal::new(Color::new(0.73, 0.73, 0.73), 0.0));
         materials.create_material("white", Lambertian::new(Color::gray(0.73)));
         materials.create_material("green", Lambertian::new(Color::new(0.12, 0.45, 0.15)));
         materials.create_material("light", Diffuse::new(Color::gray(15.0)));
 
-        objects.add(Arc::new(Quad::new(
+        let q1 = Arc::new(Quad::new(
             &Point3::new(555.0, 0.0, 0.0),
             &Vector3::new(0.0, 555.0, 0.0),
             &Vector3::new(0.0, 0.0, 555.0),
             materials.get("green"),
-        )));
+        ));
 
-        objects.add(Arc::new(Quad::new(
+        let q2 = Arc::new(Quad::new(
             &Point3::new(0.0, 0.0, 0.0),
             &Vector3::new(0.0, 555.0, 0.0),
             &Vector3::new(0.0, 0.0, 555.0),
             materials.get("red"),
-        )));
+        ));
 
-        objects.add(Arc::new(Quad::new(
+        let q3 = Arc::new(Quad::new(
             &Point3::new(343.0, 554.0, 332.0),
             &Vector3::new(-130.0, 0.0, 0.0),
             &Vector3::new(0.0, 0.0, -105.0),
             materials.get("light"),
-        )));
+        ));
 
-        objects.add(Arc::new(Quad::new(
+        let q4 = Arc::new(Quad::new(
             &Point3::new(0.0, 0.0, 0.0),
             &Vector3::new(555.0, 0.0, 0.0),
             &Vector3::new(0.0, 0.0, 555.0),
             materials.get("white"),
-        )));
+        ));
 
-        objects.add(Arc::new(Quad::new(
+        let q5 = Arc::new(Quad::new(
             &Point3::new(555.0, 555.0, 555.0),
             &Vector3::new(-555.0, 0.0, 0.0),
             &Vector3::new(0.0, 0.0, -555.0),
             materials.get("white"),
-        )));
+        ));
 
-        objects.add(Arc::new(Quad::new(
+        let q6 = Arc::new(Quad::new(
             &Point3::new(0.0, 0.0, 555.5),
             &Vector3::new(555.0, 0.0, 0.0),
             &Vector3::new(0.0, 555.0, 0.0),
             materials.get("white"),
-        )));
+        ));
+
+        objects.add_all(q1.to_triangles());
+        objects.add_all(q2.to_triangles());
+        objects.add_all(q3.to_triangles());
+        objects.add_all(q4.to_triangles());
+        objects.add_all(q5.to_triangles());
+        objects.add_all(q6.to_triangles());
 
         let box1 = Quad::new_box(
             &Point3::new(0.0, 0.0, 0.0),
