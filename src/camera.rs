@@ -8,12 +8,14 @@ use crate::{
     Hittable,
 };
 use image::{ImageBuffer, RgbImage};
-use indicatif::{ParallelProgressIterator, ProgressState, ProgressStyle};
+use indicatif::{ParallelProgressIterator, ProgressIterator, ProgressState, ProgressStyle};
 use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::cmp;
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::fmt::Write;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
+use std::{cmp, thread};
 
 pub struct CameraConfig {
     pub aspect_ratio: f32,
@@ -29,23 +31,31 @@ pub struct CameraConfig {
 }
 
 pub struct Camera {
+    // Image params
     aspect_ratio: f32,
     vfov: f32,
-    vup: Vector3<f32>,
     image_width: u32,
     image_height: u32,
+    vup: Vector3<f32>, // Vertical up vector
+
+    // Focus
     defocus_angle: f32,
     defocus_disk_u: Vector3<f32>,
     defocus_disk_v: Vector3<f32>,
     focal_length: f32,
+
+    // Viewport
     center: Point3<f32>,
     pixel00: Point3<f32>,
     pixel_du: Vector3<f32>,
     pixel_dv: Vector3<f32>,
 
+    // Tracing-related params
     spp: u32,
+    sqrt_spp: u32,
+    inv_sqrt_spp: f32,
+    pixel_samples_scale: f32,
     max_depth: u32,
-
     background: Color,
 }
 
@@ -105,6 +115,10 @@ impl Camera {
         let defocus_disk_u = u * defocus_radius;
         let defocus_disk_v = v * defocus_radius;
 
+        let sqrt_spp = (spp as f32).sqrt() as u32;
+        let inv_sqrt_spp = 1.0 / sqrt_spp as f32;
+        let pixel_samples_scale = 1.0 / ((sqrt_spp * sqrt_spp) as f32);
+
         Self {
             aspect_ratio,
             vfov,
@@ -120,22 +134,47 @@ impl Camera {
             pixel_du,
             pixel_dv,
             spp,
+            sqrt_spp,
+            inv_sqrt_spp,
+            pixel_samples_scale,
             max_depth,
             background,
         }
     }
 
+    pub fn get_height(&self) -> u32 {
+        self.image_height
+    }
+
+    pub fn get_width(&self) -> u32 {
+        self.image_width
+    }
+
     pub fn render(
         &self,
         objects: &(impl Hittable + std::marker::Sync + std::marker::Send),
-    ) -> RgbImage {
+        buffer: Arc<Mutex<RgbImage>>,
+    ) {
+        log::info!("Rendering...");
+        let now = SystemTime::now();
         // Image generation
-        let mut buffer: RgbImage = ImageBuffer::new(self.image_width, self.image_height);
-        let len = buffer.len() as u64;
-        // CPU parallelization
-        buffer
-            .par_enumerate_pixels_mut()
-            .progress_count(len)
+        // let mut buffer: RgbImage = ImageBuffer::new(self.image_width, self.image_height);
+        let mut image: Vec<Color>=
+            vec![Color::zeros(); self.image_width as usize * self.image_height as usize];
+
+        // I'm too lazy to do it normally
+        let mut sample_list = vec![];
+        for s_u in 0..self.sqrt_spp {
+            for s_v in 0..self.sqrt_spp {
+                sample_list.push((s_u, s_v));
+            }
+        }
+
+        let len = sample_list.len();
+        let mut samples = 0;
+        sample_list
+            .into_iter()
+            .progress_count(len as u64)
             .with_style(
                 ProgressStyle::with_template(
                     "[{elapsed_precise}] [{wide_bar:.cyan/blue}] {percent}% ({eta})",
@@ -146,25 +185,41 @@ impl Camera {
                 })
                 .progress_chars("#>-"),
             )
-            .for_each(|(u, v, pixel)| {
-                let pixel_color: Color = (0..self.spp)
-                    .into_par_iter()
-                    .map(|_| -> Color {
-                        let mut rng = rand::thread_rng();
-                        let ray = self.get_ray(&mut rng, u as f32, v as f32);
-                        self.ray_color(&mut rng, &ray, objects, self.max_depth)
-                    })
-                    .sum::<Color>()
-                    / self.spp as f32;
+            .for_each(|(s_u, s_v)| {
+                samples += 1;
+                image.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+                    let mut rng = rand::thread_rng();
+                    let (u, v) = (
+                        i % (self.image_width as usize),
+                        i / (self.image_width as usize),
+                    );
+                    let ray = self.get_ray(&mut rng, u as f32, v as f32, s_u as f32, s_v as f32);
+                    let pixel_color: Color =
+                        self.ray_color(&mut rng, &ray, objects, self.max_depth); //* self.pixel_samples_scale;
 
-                *pixel = pixel_color.to_rgb();
+                    *pixel += pixel_color;
+                });
+                let mut buffer = buffer.lock().unwrap();
+                buffer.par_enumerate_pixels_mut().for_each(|(u, v, pixel)| {
+                    let pixel_color: Color = image[(u + v * self.image_width as u32) as usize] / (samples as f32);
+                    *pixel = pixel_color.to_rgb();
+                });
+                //thread::sleep(Duration::from_millis(1));
             });
 
-        buffer
+            let render_elapsed = match now.elapsed() {
+                Ok(elapsed) => elapsed,
+                Err(e) => {
+                    log::error!("Failed to get elapsed time: {}", e);
+                    Duration::from_secs(0)
+                }
+            };
+
+            log::info!("Render time: {:?}", render_elapsed);
     }
 
-    fn get_ray(&self, rng: &mut ThreadRng, u: f32, v: f32) -> Ray {
-        let sampler = SquareSampler::new((0.0, 0.0), 0.5);
+    fn get_ray(&self, rng: &mut ThreadRng, u: f32, v: f32, s_u: f32, s_v: f32) -> Ray {
+        let sampler = SquareSampler::new((0.5, 0.5), 0.5);
         let disk_sampler = DiskSampler::unit();
 
         // ray_center
@@ -176,7 +231,11 @@ impl Camera {
         };
 
         // ray_direction
-        let (offset_u, offset_v) = sampler.sample(rng);
+        let sample = sampler.sample(rng);
+        let (offset_u, offset_v) = (
+            (s_u + sample.0) * self.inv_sqrt_spp - 0.5,
+            (s_v + sample.1) * self.inv_sqrt_spp - 0.5,
+        );
         let pixel_center =
             self.pixel00 + (u + offset_u) * self.pixel_du + (v + offset_v) * self.pixel_dv;
         let ray_direction = pixel_center - ray_center;

@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 clippy = "0.0.302"
+eframe = "0.28.1"
+egui_extras = "0.28.1"
 env_logger = "0.11.4"
 fmt = "0.1.0"
 image = {version = "0.25.2", features = ["rayon"]}

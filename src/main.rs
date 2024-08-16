@@ -11,23 +11,63 @@ mod textures;
 mod types;
 
 use bvh::{BVHBuilder, SplitMethod};
+use eframe::egui;
+use image::{ImageBuffer, RgbImage};
 use objects::Hittable;
 use scenes::{cornell, lucy, Scene};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, SystemTime};
 
-fn main() {
+struct PathtracerApp {
+    image_buffer: Arc<Mutex<RgbImage>>,
+    texture: Option<egui::TextureHandle>,
+    width: usize,
+    height: usize,
+}
+
+impl eframe::App for PathtracerApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let buffer = self.image_buffer.lock().unwrap();
+
+            if self.texture.is_none() {
+                self.texture = Some(ui.ctx().load_texture(
+                    "raytraced_image",
+                    egui::ColorImage::from_rgb([self.width, self.height], &buffer),
+                    egui::TextureOptions::default(),
+                ));
+            } else {
+                self.texture.as_mut().unwrap().set(
+                    egui::ColorImage::from_rgb([self.width, self.height], &buffer),
+                    egui::TextureOptions::default(),
+                );
+            }
+
+            if let Some(texture) = &self.texture {
+                ui.image(texture);
+            }
+        });
+
+        ctx.request_repaint();
+    }
+}
+
+fn main() -> eframe::Result {
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
         .init();
 
     log::info!("Building scene...");
-    let now = std::time::SystemTime::now();
+    let now = SystemTime::now();
     let camera = cornell::Cornell::build_camera();
+    let (width, height) = (camera.get_width() as usize, camera.get_height() as usize);
     let objects = cornell::Cornell::build_scene_flat_bvh();
     let objects = match objects {
         Ok(objects) => objects,
         _ => {
             log::error!("Failed to build BVH");
-            return;
+            return Ok(());
         }
     };
 
@@ -35,26 +75,49 @@ fn main() {
         Ok(elapsed) => elapsed,
         Err(e) => {
             log::error!("Failed to get elapsed time: {}", e);
-            std::time::Duration::from_secs(0)
+            Duration::from_secs(0)
         }
     };
 
+    let image_buffer: Arc<Mutex<RgbImage>> = Arc::new(Mutex::new(RgbImage::new(
+        camera.get_width(),
+        camera.get_height(),
+    )));
+
+    log::info!("Build time: {:?}", build_elapsed);
+
     log::info!("Rendering...");
-    let now = std::time::SystemTime::now();
-    let buffer = camera.render(&objects);
+    let now = SystemTime::now();
+
+    let image_buffer_to_render = image_buffer.clone();
+
+    thread::spawn(move || {
+        camera.render(&objects, image_buffer_to_render);
+    });
+
     let render_elapsed = match now.elapsed() {
         Ok(elapsed) => elapsed,
         Err(e) => {
             log::error!("Failed to get elapsed time: {}", e);
-            std::time::Duration::from_secs(0)
+            Duration::from_secs(0)
         }
     };
 
-    buffer.save("test.png").unwrap();
+    // image_buffer.clone().try_lock().unwrap().save("strat.png").unwrap();
 
-    log::info!(
-        "Done. Build time: {:?}. Render time: {:?}",
-        build_elapsed,
-        render_elapsed
-    );
+    log::info!("Render time: {:?}", render_elapsed);
+
+    let app = PathtracerApp {
+        image_buffer: image_buffer.clone(),
+        texture: None,
+        width,
+        height,
+    };
+
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "Pathtracer",
+        native_options,
+        Box::new(|_cc| Ok(Box::new(app))),
+    )
 }

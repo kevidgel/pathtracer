@@ -100,17 +100,17 @@ impl Quad {
 
     pub fn to_triangles(&self) -> Vec<Primitive> {
         let t1 = Triangle::new(
-            [self.origin,
-            self.origin + self.u,
-            self.origin + self.v],
+            [self.origin, self.origin + self.u, self.origin + self.v],
             None,
             None,
             self.mat.clone(),
         );
         let t2 = Triangle::new(
-            [self.origin + self.u,
-            self.origin + self.u + self.v,
-            self.origin + self.v],
+            [
+                self.origin + self.u,
+                self.origin + self.u + self.v,
+                self.origin + self.v,
+            ],
             None,
             None,
             self.mat.clone(),
