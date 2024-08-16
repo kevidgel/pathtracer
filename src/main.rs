@@ -86,26 +86,13 @@ fn main() -> eframe::Result {
 
     log::info!("Build time: {:?}", build_elapsed);
 
-    log::info!("Rendering...");
-    let now = SystemTime::now();
-
     let image_buffer_to_render = image_buffer.clone();
 
     thread::spawn(move || {
         camera.render(&objects, image_buffer_to_render);
     });
 
-    let render_elapsed = match now.elapsed() {
-        Ok(elapsed) => elapsed,
-        Err(e) => {
-            log::error!("Failed to get elapsed time: {}", e);
-            Duration::from_secs(0)
-        }
-    };
-
     // image_buffer.clone().try_lock().unwrap().save("strat.png").unwrap();
-
-    log::info!("Render time: {:?}", render_elapsed);
 
     let app = PathtracerApp {
         image_buffer: image_buffer.clone(),
