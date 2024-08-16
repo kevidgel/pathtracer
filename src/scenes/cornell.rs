@@ -23,7 +23,7 @@ impl Scene for Cornell {
             Point3::new(278.0, 278.0, 0.0),
             1.0,
             0.0,
-            1000,
+            64,
             16,
             Color::gray(0.0),
         )
