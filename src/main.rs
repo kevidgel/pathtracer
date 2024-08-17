@@ -10,11 +10,10 @@ mod scenes;
 mod textures;
 mod types;
 
-use bvh::{BVHBuilder, SplitMethod};
 use eframe::egui;
-use image::{ImageBuffer, RgbImage};
+use image::RgbImage;
 use objects::Hittable;
-use scenes::{cornell, lucy, Scene};
+use scenes::{cornell, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -93,8 +92,6 @@ fn main() -> eframe::Result {
         camera.render(&objects, image_buffer_to_render);
         to_save.lock().unwrap().save("strat.png").unwrap();
     });
-
-    // image_buffer.clone().try_lock().unwrap().save("strat.png").unwrap();
 
     let app = PathtracerApp {
         image_buffer: image_buffer.clone(),

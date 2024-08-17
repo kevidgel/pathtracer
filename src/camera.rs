@@ -7,15 +7,15 @@ use crate::{
     },
     Hittable,
 };
-use image::{ImageBuffer, RgbImage};
-use indicatif::{ParallelProgressIterator, ProgressIterator, ProgressState, ProgressStyle};
+use image::RgbImage;
+use indicatif::{ProgressIterator, ProgressState, ProgressStyle};
 use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use std::{cmp, thread};
+use std::cmp;
 
 pub struct CameraConfig {
     pub aspect_ratio: f32,

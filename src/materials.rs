@@ -4,14 +4,13 @@ pub mod light;
 pub mod metal;
 
 use crate::objects::HitRecord;
-use crate::types::color::ColorOps;
 use crate::types::{color::Color, ray::Ray};
 use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-pub type MaterialRef = Arc<dyn Material + Send + Sync>;
+pub type MaterialRef = Arc<dyn Material>;
 
 pub fn reflect(v: &Vector3<f32>, n: &Vector3<f32>) -> Vector3<f32> {
     v - 2.0 * v.dot(n) * n
@@ -24,7 +23,7 @@ pub fn refract(uv: &Vector3<f32>, n: &Vector3<f32>, etai_over_etat: f32) -> Vect
     r_out_perp + r_out_parallel
 }
 
-pub trait Material {
+pub trait Material : Send + Sync {
     fn scatter(
         &self,
         rng: Option<&mut ThreadRng>,

@@ -791,7 +791,7 @@ impl FlatBVH {
         let mut closest_so_far = t_max;
         let mut current_node_index = 0;
         let mut to_visit_offset = 0;
-        let mut nodes_to_visit: [usize; 1024] = [0; 1024];
+        let mut nodes_to_visit: [usize; 64] = [0; 64];
 
         let dir_is_neg = [
             ray.direction.x < 0.0,

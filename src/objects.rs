@@ -5,7 +5,7 @@ pub mod tri_mesh;
 use crate::bvh::BBox;
 use crate::materials::MaterialRef;
 use crate::types::ray::Ray;
-use na::{Matrix, Matrix4, Point3, Vector3};
+use na::{Matrix4, Point3, Vector3};
 use std::sync::Arc;
 
 pub type Primitive = Arc<dyn Hittable + Sync + Send>;

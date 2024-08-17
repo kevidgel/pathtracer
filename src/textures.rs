@@ -5,9 +5,9 @@ use na::Point3;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-pub type TextureRef = Arc<dyn Texture + Send + Sync>;
+pub type TextureRef = Arc<dyn Texture>;
 
-pub trait Texture {
+pub trait Texture: Send + Sync {
     fn value(&self, u: f32, v: f32, p: &Point3<f32>) -> Color;
 }
 
@@ -31,7 +31,7 @@ impl TextureRegistry {
         name: &str,
         texture: impl Texture + std::marker::Send + std::marker::Sync + 'static,
     ) {
-        let texture: Arc<dyn Texture + Sync + Send> = Arc::new(texture);
+        let texture: TextureRef = Arc::new(texture);
         self.add_texture(name, texture);
     }
 
