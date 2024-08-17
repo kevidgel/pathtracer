@@ -34,6 +34,9 @@ pub trait Material {
     fn emitted(&self, _u: f32, _v: f32, _p: &Point3<f32>) -> Color {
         Color::zeros()
     }
+    fn scattering_pdf(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> f32 {
+        0.0
+    }
 }
 
 pub struct MaterialRegistry {
