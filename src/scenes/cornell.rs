@@ -24,7 +24,7 @@ impl Scene for Cornell {
             1.0,
             0.0,
             64,
-            50,
+            16,
             Color::gray(0.0),
         )
     }
