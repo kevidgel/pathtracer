@@ -59,6 +59,16 @@ impl Material for Lambertian {
 
         Some((attenuation, scattered))
     }
+
+    fn scattering_pdf(&self, _ray_in: &Ray, ray_out: &Ray, rec: &HitRecord) -> f32 {
+        let cos_theta = rec.normal().dot(&ray_out.direction.normalize());
+
+        if cos_theta < 0.0 {
+            0.0
+        } else {
+            cos_theta / std::f32::consts::PI
+        }
+    }
 }
 
 pub struct Diffuse {

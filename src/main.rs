@@ -55,7 +55,7 @@ impl eframe::App for PathtracerApp {
 
 fn main() -> eframe::Result {
     env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .init();
 
     log::info!("Building scene...");
@@ -80,8 +80,8 @@ fn main() -> eframe::Result {
     };
 
     let image_buffer: Arc<Mutex<RgbImage>> = Arc::new(Mutex::new(RgbImage::new(
-        camera.get_width(),
-        camera.get_height(),
+        width as u32,
+        height as u32,
     )));
 
     log::info!("Build time: {:?}", build_elapsed);
@@ -89,7 +89,9 @@ fn main() -> eframe::Result {
     let image_buffer_to_render = image_buffer.clone();
 
     thread::spawn(move || {
+        let to_save = image_buffer_to_render.clone();
         camera.render(&objects, image_buffer_to_render);
+        to_save.lock().unwrap().save("strat.png").unwrap();
     });
 
     // image_buffer.clone().try_lock().unwrap().save("strat.png").unwrap();
