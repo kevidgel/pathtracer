@@ -61,14 +61,8 @@ fn main() -> eframe::Result {
     let now = SystemTime::now();
     let camera = cornell::Cornell::build_camera();
     let (width, height) = (camera.get_width() as usize, camera.get_height() as usize);
-    let objects = cornell::Cornell::build_scene_flat_bvh();
-    let objects = match objects {
-        Ok(objects) => objects,
-        _ => {
-            log::error!("Failed to build BVH");
-            return Ok(());
-        }
-    };
+    let mut objects = cornell::Cornell::build_scene();
+    objects.build_bvh();
 
     let build_elapsed = match now.elapsed() {
         Ok(elapsed) => elapsed,

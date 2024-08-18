@@ -2,13 +2,16 @@ pub mod quad_mesh;
 pub mod sphere;
 pub mod tri_mesh;
 
-use crate::bvh::BBox;
+use crate::bvh::{BBox, BVHBuilder, FlatBVHNode, SplitMethod};
 use crate::materials::MaterialRef;
 use crate::types::ray::Ray;
 use na::{Matrix4, Point3, Vector3};
+use tri_mesh::Triangle;
+use sphere::Sphere;
+use quad_mesh::Quad;
 use std::sync::Arc;
 
-pub type Primitive = Arc<dyn Hittable + Sync + Send>;
+//pub type Primitive = Arc<dyn Hittable + Sync + Send>;
 
 pub struct HitRecord {
     // Normal stuff
@@ -89,81 +92,154 @@ impl HitRecord {
     }
 }
 
-// We love traits !!!
 pub trait Hittable: Sync + Send {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
     fn mat(&self) -> Option<MaterialRef>;
     fn bbox(&self) -> BBox;
 }
 
-// All of our things that are hittable
-#[derive(Clone)]
-pub struct HittableObjects {
-    // TODO: replace with kd tree
-    // TODO: idk if we should box this
-    objs: Vec<Primitive>,
-    bbox: BBox,
+pub enum Primitive {
+    Triangle(Triangle),
+    Sphere(Sphere),
+    Quad(Quad),
+    Instance(Instance),
 }
 
-impl HittableObjects {
-    pub fn new() -> HittableObjects {
-        HittableObjects {
-            objs: Vec::new(),
+impl Hittable for Primitive {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        match self {
+            Primitive::Triangle(tri) => tri.hit(ray, t_min, t_max),
+            Primitive::Sphere(sph) => sph.hit(ray, t_min, t_max),
+            Primitive::Quad(q) => q.hit(ray, t_min, t_max),
+            Primitive::Instance(i) => i.hit(ray, t_min, t_max),
+        }
+    }
+
+    fn mat(&self) -> Option<MaterialRef> {
+        match self {
+            Primitive::Triangle(tri) => tri.mat(),
+            Primitive::Sphere(sph) => sph.mat(),
+            Primitive::Quad(q) => q.mat(),
+            Primitive::Instance(i) => i.mat(),
+        }
+    }
+
+    fn bbox(&self) -> BBox {
+        match self {
+            Primitive::Triangle(tri) => tri.bbox(),
+            Primitive::Sphere(sph) => sph.bbox(),
+            Primitive::Quad(q) => q.bbox(),
+            Primitive::Instance(i) => i.bbox(),
+        }
+    }
+}
+
+pub struct InnerPrimitiveBuffer<T: Hittable> {
+    pub buffer: Vec<T>,
+    pub bvh: Option<Box<[FlatBVHNode]>>,
+    pub bbox: BBox
+}
+
+impl <T: Hittable> InnerPrimitiveBuffer<T> {
+    pub fn new() -> InnerPrimitiveBuffer<T> {
+        InnerPrimitiveBuffer {
+            buffer: Vec::new(),
+            bvh: None,
             bbox: BBox::empty(),
         }
     }
 
-    pub fn objs_clone(&self) -> Vec<Primitive> {
-        self.objs.clone()
-    }
-
-    pub fn add(&mut self, obj: Primitive) {
-        self.bbox = self.bbox.merge(&obj.bbox());
-        self.objs.push(obj);
-    }
-
-    pub fn add_all(&mut self, objs: Vec<Primitive>) {
-        for obj in objs {
-            self.add(obj);
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.objs.clear();
+    pub fn push(&mut self, primitive: T) {
+        self.bbox = self.bbox.merge(&primitive.bbox());
+        self.buffer.push(primitive);
     }
 }
 
-impl Hittable for HittableObjects {
-    // Ideally we replace this with spatial data structure
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let mut rec: Option<HitRecord> = None;
-        let mut closest_so_far = t_max;
-        for obj in &self.objs {
-            if let Some(hit) = obj.hit(ray, t_min, closest_so_far) {
-                closest_so_far = hit.t();
-                rec = Some(hit);
-            }
+pub struct PrimitiveBuffer {
+    pub triangles: InnerPrimitiveBuffer<Triangle>,
+    pub spheres: InnerPrimitiveBuffer<Sphere>,
+    pub quads: InnerPrimitiveBuffer<Quad>,
+    pub instances: InnerPrimitiveBuffer<Instance>,
+}
+
+impl PrimitiveBuffer {
+    pub fn new() -> PrimitiveBuffer {
+        PrimitiveBuffer {
+            triangles: InnerPrimitiveBuffer::new(),
+            spheres: InnerPrimitiveBuffer::new(),
+            quads:  InnerPrimitiveBuffer::new(),
+            instances: InnerPrimitiveBuffer::new(),
         }
-        rec
     }
 
+    pub fn add(&mut self, primitive: Primitive) {
+        match primitive {
+            Primitive::Triangle(tri) => self.triangles.push(tri),
+            Primitive::Sphere(sph) => self.spheres.push(sph),
+            Primitive::Quad(q) => self.quads.push(q),
+            Primitive::Instance(i) => self.instances.push(i),
+        }
+    }
+
+    pub fn build_bvh(&mut self) {
+        if self.triangles.buffer.len() > 0 {
+            BVHBuilder::build(SplitMethod::SAH, &mut self.triangles).unwrap();
+        }
+
+        if self.spheres.buffer.len() > 0 {
+            BVHBuilder::build(SplitMethod::SAH, &mut self.spheres).unwrap();
+        }
+
+        if self.quads.buffer.len() > 0 {
+            BVHBuilder::build(SplitMethod::SAH, &mut self.quads).unwrap();
+        }
+
+        if self.instances.buffer.len() > 0 {
+            BVHBuilder::build(SplitMethod::SAH, &mut self.instances).unwrap();
+        }
+    }
+}
+
+impl Hittable for PrimitiveBuffer {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        let tri_hit = self.triangles.hit(ray, t_min, t_max);
+        let sph_hit = self.spheres.hit(ray, t_min, t_max);
+        let q_hit = self.quads.hit(ray, t_min, t_max);
+        let inst_hit = self.instances.hit(ray, t_min, t_max);
+
+        fn compare(a: Option<HitRecord>, b: Option<HitRecord>) -> Option<HitRecord> {
+            match (a, b) {
+                (Some(a), Some(b)) => {
+                    if a.t < b.t {
+                        Some(a)
+                    } else {
+                        Some(b)
+                    }
+                }
+                (Some(a), None) => Some(a),
+                (None, Some(b)) => Some(b),
+                (None, None) => None
+            }
+        }
+
+        compare(compare(compare(tri_hit, sph_hit), q_hit), inst_hit)
+    }
     fn mat(&self) -> Option<MaterialRef> {
         None
     }
-
     fn bbox(&self) -> BBox {
-        self.bbox
+        self.instances.bbox().merge(&self.triangles.bbox().merge(&self.spheres.bbox()).merge(&self.quads.bbox()))
     }
 }
 
 pub struct Instance {
-    obj: Primitive,
+    obj: PrimitiveBuffer,
     transform: Matrix4<f32>,
     inverse: Matrix4<f32>,
 }
 
 impl Instance {
-    pub fn new(obj: Primitive, transform: na::Matrix4<f32>) -> Result<Self, &'static str> {
+    pub fn new(obj: PrimitiveBuffer, transform: na::Matrix4<f32>) -> Result<Self, &'static str> {
         let inverse = transform.try_inverse().ok_or("Matrix is not invertible")?;
         Ok(Instance {
             obj,
@@ -172,7 +248,7 @@ impl Instance {
         })
     }
 
-    pub fn from_obj(obj: Primitive) -> Self {
+    pub fn from_obj(obj: PrimitiveBuffer) -> Self {
         Instance {
             obj,
             transform: Matrix4::identity(),

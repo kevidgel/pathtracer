@@ -3,18 +3,21 @@ use std::sync::Arc;
 use na::Point3;
 
 use super::Scene;
+use crate::objects::PrimitiveBuffer;
 use crate::types::color::{Color, ColorOps};
 use crate::{
     camera::Camera,
     materials::{dielectric::Dielectric, light::Diffuse, metal::Metal, MaterialRegistry},
-    objects::{sphere::Sphere, tri_mesh::TriMesh, HittableObjects},
+    objects::{sphere::Sphere, tri_mesh::TriMesh},
 };
+
+use crate::objects::Primitive;
 
 pub struct Lucy;
 
-impl Scene for Lucy {
-    fn build_scene() -> HittableObjects {
-        let mut objects = HittableObjects::new();
+impl Scene<'_> for Lucy {
+    fn build_scene() -> PrimitiveBuffer {
+        let mut objects = PrimitiveBuffer::new();
         let mut materials = MaterialRegistry::new();
         let meshes: Vec<TriMesh> = TriMesh::load_as_vec("lucy.obj");
 
@@ -30,13 +33,13 @@ impl Scene for Lucy {
 
         let light = Sphere::new(Point3::new(0.7, 2.3, 1.0), 0.9, materials.get("emit"));
 
-        objects.add(Arc::new(light));
-        objects.add(Arc::new(ground));
+        objects.add(Primitive::Sphere(light));
+        objects.add(Primitive::Sphere(ground));
 
         let mesh = meshes.get(0).unwrap();
         let triangles = mesh.to_triangles_with_mat(materials.get("mat1").unwrap());
         for tri in triangles {
-            objects.add(Arc::new(tri));
+            objects.add(Primitive::Triangle(tri));
         }
 
         objects

@@ -6,7 +6,7 @@ use crate::objects::Hittable;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};
 
-use super::{tri_mesh::Triangle, HitRecord, HittableObjects, Primitive};
+use super::{tri_mesh::Triangle, HitRecord, Primitive, PrimitiveBuffer};
 
 #[derive(Clone)]
 pub struct Quad {
@@ -48,8 +48,8 @@ impl Quad {
         }
     }
 
-    pub fn new_box(a: &Point3<f32>, b: &Point3<f32>, mat: Option<MaterialRef>) -> HittableObjects {
-        let mut sides = HittableObjects::new();
+    pub fn new_box(a: &Point3<f32>, b: &Point3<f32>, mat: Option<MaterialRef>) -> PrimitiveBuffer {
+        let mut sides = PrimitiveBuffer::new();
 
         let min = Point3::new(a.x.min(b.x), a.y.min(b.y), a.z.min(b.z));
         let max = Point3::new(a.x.max(b.x), a.y.max(b.y), a.z.max(b.z));
@@ -58,47 +58,47 @@ impl Quad {
         let dy = Vector3::new(0.0, max.y - min.y, 0.0);
         let dz = Vector3::new(0.0, 0.0, max.z - min.z);
 
-        sides.add(Arc::new(Quad::new(
+        sides.add(Primitive::Quad(Quad::new(
             &Point3::new(min.x, min.y, max.z),
             &dx,
             &dy,
             mat.clone(),
-        )) as Primitive);
-        sides.add(Arc::new(Quad::new(
+        )));
+        sides.add(Primitive::Quad(Quad::new(
             &Point3::new(max.x, min.y, max.z),
             &-dz,
             &dy,
             mat.clone(),
-        )) as Primitive);
-        sides.add(Arc::new(Quad::new(
+         )));
+        sides.add(Primitive::Quad(Quad::new(
             &Point3::new(max.x, min.y, min.z),
             &-dx,
             &dy,
             mat.clone(),
-        )) as Primitive);
-        sides.add(Arc::new(Quad::new(
+        )));
+        sides.add(Primitive::Quad(Quad::new(
             &Point3::new(min.x, min.y, min.z),
             &dz,
             &dy,
             mat.clone(),
-        )) as Primitive);
-        sides.add(Arc::new(Quad::new(
+        )));
+        sides.add(Primitive::Quad(Quad::new(
             &Point3::new(min.x, max.y, max.z),
             &dx,
             &-dz,
             mat.clone(),
-        )) as Primitive);
-        sides.add(Arc::new(Quad::new(
+        )));
+        sides.add(Primitive::Quad(Quad::new(
             &Point3::new(min.x, min.y, min.z),
             &dx,
             &dz,
             mat.clone(),
-        )) as Primitive);
+        )));
 
         sides
     }
 
-    pub fn to_triangles(&self) -> Vec<Primitive> {
+    pub fn to_triangles(&self) -> Vec<Triangle> {
         let t1 = Triangle::new(
             [self.origin, self.origin + self.u, self.origin + self.v],
             None,
@@ -115,7 +115,7 @@ impl Quad {
             None,
             self.mat.clone(),
         );
-        vec![Arc::new(t1), Arc::new(t2)]
+        vec![t1, t2]
     }
 }
 
