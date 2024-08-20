@@ -13,7 +13,7 @@ mod types;
 use eframe::egui;
 use image::RgbImage;
 use objects::Hittable;
-use scenes::{cornell, Scene};
+use scenes::{cornell, lucy, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -59,9 +59,9 @@ fn main() -> eframe::Result {
 
     log::info!("Building scene...");
     let now = SystemTime::now();
-    let camera = cornell::Cornell::build_camera();
+    let camera = lucy::Lucy::build_camera();
     let (width, height) = (camera.get_width() as usize, camera.get_height() as usize);
-    let mut objects = cornell::Cornell::build_scene();
+    let mut objects = lucy::Lucy::build_scene();
     objects.build_bvh();
 
     let build_elapsed = match now.elapsed() {

@@ -11,7 +11,6 @@ use sphere::Sphere;
 use quad_mesh::Quad;
 use std::sync::Arc;
 
-//pub type Primitive = Arc<dyn Hittable + Sync + Send>;
 
 pub struct HitRecord {
     // Normal stuff
@@ -153,6 +152,10 @@ impl <T: Hittable> InnerPrimitiveBuffer<T> {
         self.bbox = self.bbox.merge(&primitive.bbox());
         self.buffer.push(primitive);
     }
+
+    pub fn len(&self) -> usize {
+        self.buffer.len()
+    }
 }
 
 pub struct PrimitiveBuffer {
@@ -182,19 +185,23 @@ impl PrimitiveBuffer {
     }
 
     pub fn build_bvh(&mut self) {
-        if self.triangles.buffer.len() > 0 {
+        if self.triangles.len() > 0 {
+            log::info!("Building BVH for {} triangles", self.triangles.len());
             BVHBuilder::build(SplitMethod::SAH, &mut self.triangles).unwrap();
         }
 
-        if self.spheres.buffer.len() > 0 {
+        if self.spheres.len() > 0 {
+            log::info!("Building BVH for {} spheres", self.spheres.len());
             BVHBuilder::build(SplitMethod::SAH, &mut self.spheres).unwrap();
         }
 
-        if self.quads.buffer.len() > 0 {
+        if self.quads.len() > 0 {
+            log::info!("Building BVH for {} quads", self.quads.len());
             BVHBuilder::build(SplitMethod::SAH, &mut self.quads).unwrap();
         }
 
-        if self.instances.buffer.len() > 0 {
+        if self.instances.len() > 0 {
+            log::info!("Building BVH for {} instances", self.instances.len());
             BVHBuilder::build(SplitMethod::SAH, &mut self.instances).unwrap();
         }
     }
@@ -202,27 +209,30 @@ impl PrimitiveBuffer {
 
 impl Hittable for PrimitiveBuffer {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let tri_hit = self.triangles.hit(ray, t_min, t_max);
-        let sph_hit = self.spheres.hit(ray, t_min, t_max);
-        let q_hit = self.quads.hit(ray, t_min, t_max);
-        let inst_hit = self.instances.hit(ray, t_min, t_max);
-
-        fn compare(a: Option<HitRecord>, b: Option<HitRecord>) -> Option<HitRecord> {
-            match (a, b) {
-                (Some(a), Some(b)) => {
-                    if a.t < b.t {
-                        Some(a)
-                    } else {
-                        Some(b)
-                    }
-                }
-                (Some(a), None) => Some(a),
-                (None, Some(b)) => Some(b),
-                (None, None) => None
+        let mut closest_so_far = t_max;
+        let hit = self.triangles.hit(ray, t_min, closest_so_far);
+        match hit.as_ref() {
+            Some(rec) => {
+                closest_so_far = rec.t();
             }
+            None => {}
         }
-
-        compare(compare(compare(tri_hit, sph_hit), q_hit), inst_hit)
+        let hit = self.spheres.hit(ray, t_min, closest_so_far).or(hit);
+        match hit.as_ref() {
+            Some(rec) => {
+                closest_so_far = rec.t();
+            }
+            None => {}
+        }
+        let hit = self.quads.hit(ray, t_min, closest_so_far).or(hit);
+        match hit.as_ref() {
+            Some(rec) => {
+                closest_so_far = rec.t();
+            }
+            None => {}
+        }
+        let hit = self.instances.hit(ray, t_min, closest_so_far).or(hit);
+        hit
     }
     fn mat(&self) -> Option<MaterialRef> {
         None

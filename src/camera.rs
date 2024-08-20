@@ -259,7 +259,7 @@ impl Camera {
                         let emitted = material.emitted(rec.u(), rec.v(), &rec.p());
                         match material.scatter(Some(rng), ray, &rec) {
                             Some((attenuation, scattered)) => {
-                                let scattering_pdf = material.scattering_pdf(&ray, &scattered, &rec);
+                                let scattering_pdf = 1.0;//material.scattering_pdf(&ray, &scattered, &rec);
                                 let pdf_value = scattering_pdf;
                                 emitted
                                     + scattering_pdf * attenuation.component_mul(&self.ray_color(

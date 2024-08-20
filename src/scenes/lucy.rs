@@ -19,7 +19,7 @@ impl Scene<'_> for Lucy {
     fn build_scene() -> PrimitiveBuffer {
         let mut objects = PrimitiveBuffer::new();
         let mut materials = MaterialRegistry::new();
-        let meshes: Vec<TriMesh> = TriMesh::load_as_vec("lucy.obj");
+        let meshes: Vec<TriMesh> = TriMesh::load_as_vec("teapot_smooth.obj");
 
         materials.create_material("ground", Metal::new(Color::new(0.3, 0.3, 0.8), 0.1));
         materials.create_material("emit", Diffuse::gray(1.0));
