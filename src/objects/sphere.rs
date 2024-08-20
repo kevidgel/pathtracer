@@ -6,6 +6,7 @@ use na::{Point3, Vector3};
 
 use super::HitRecord;
 
+#[repr(align(32))]
 pub struct Sphere {
     center: Point3<f32>,
     radius: f32,

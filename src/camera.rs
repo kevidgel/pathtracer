@@ -1,21 +1,20 @@
+use crate::objects::PrimitiveBuffer;
 use crate::types::sampler::{Sampler, SquareSampler};
-use crate::{
-    types::{
-        color::{Color, ColorOps},
-        ray::Ray,
-        sampler::DiskSampler,
-    },
-    Hittable,
+use crate::types::{
+    color::{Color, ColorOps},
+    ray::Ray,
+    sampler::DiskSampler,
 };
+
 use image::RgbImage;
 use indicatif::{ProgressIterator, ProgressState, ProgressStyle};
 use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use std::cmp;
 use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use std::cmp;
 
 pub struct CameraConfig {
     pub aspect_ratio: f32,
@@ -150,16 +149,12 @@ impl Camera {
         self.image_width
     }
 
-    pub fn render(
-        &self,
-        objects: &(impl Hittable + std::marker::Sync + std::marker::Send),
-        buffer: Arc<Mutex<RgbImage>>,
-    ) {
+    pub fn render(&self, objects: &PrimitiveBuffer, buffer: Arc<Mutex<RgbImage>>) {
         log::info!("Rendering...");
         let now = SystemTime::now();
         // Image generation
         // let mut buffer: RgbImage = ImageBuffer::new(self.image_width, self.image_height);
-        let mut image: Vec<Color>=
+        let mut image: Vec<Color> =
             vec![Color::zeros(); self.image_width as usize * self.image_height as usize];
 
         // I'm too lazy to do it normally
@@ -199,23 +194,32 @@ impl Camera {
 
                     *pixel += pixel_color;
                 });
+
                 let mut buffer = buffer.lock().unwrap();
                 buffer.par_enumerate_pixels_mut().for_each(|(u, v, pixel)| {
-                    let pixel_color: Color = image[(u + v * self.image_width as u32) as usize] / (samples as f32);
+                    let pixel_color: Color =
+                        image[(u + v * self.image_width as u32) as usize] / (samples as f32);
                     *pixel = pixel_color.to_rgb();
                 });
                 //thread::sleep(Duration::from_millis(1));
             });
 
-            let render_elapsed = match now.elapsed() {
-                Ok(elapsed) => elapsed,
-                Err(e) => {
-                    log::error!("Failed to get elapsed time: {}", e);
-                    Duration::from_secs(0)
-                }
-            };
+        let mut buffer = buffer.lock().unwrap();
+        buffer.par_enumerate_pixels_mut().for_each(|(u, v, pixel)| {
+            let pixel_color: Color =
+                image[(u + v * self.image_width as u32) as usize] / (samples as f32);
+            *pixel = pixel_color.to_rgb();
+        });
 
-            log::info!("Render time: {:?}", render_elapsed);
+        let render_elapsed = match now.elapsed() {
+            Ok(elapsed) => elapsed,
+            Err(e) => {
+                log::error!("Failed to get elapsed time: {}", e);
+                Duration::from_secs(0)
+            }
+        };
+
+        log::info!("Render time: {:?}", render_elapsed);
     }
 
     fn get_ray(&self, rng: &mut ThreadRng, u: f32, v: f32, s_u: f32, s_v: f32) -> Ray {
@@ -246,7 +250,7 @@ impl Camera {
         &self,
         rng: &mut ThreadRng,
         ray: &Ray,
-        objects: &impl Hittable,
+        objects: &PrimitiveBuffer,
         max_depth: u32,
     ) -> Color {
         if max_depth == 0 {
@@ -259,15 +263,17 @@ impl Camera {
                         let emitted = material.emitted(rec.u(), rec.v(), &rec.p());
                         match material.scatter(Some(rng), ray, &rec) {
                             Some((attenuation, scattered)) => {
-                                let scattering_pdf = material.scattering_pdf(&ray, &scattered, &rec);
+                                let scattering_pdf = 1.0; //material.scattering_pdf(&ray, &scattered, &rec);
                                 let pdf_value = scattering_pdf;
                                 emitted
-                                    + scattering_pdf * attenuation.component_mul(&self.ray_color(
-                                        rng,
-                                        &scattered,
-                                        objects,
-                                        max_depth - 1,
-                                    )) / pdf_value
+                                    + scattering_pdf
+                                        * attenuation.component_mul(&self.ray_color(
+                                            rng,
+                                            &scattered,
+                                            objects,
+                                            max_depth - 1,
+                                        ))
+                                        / pdf_value
                             }
                             None => emitted,
                         }

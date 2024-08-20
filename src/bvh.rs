@@ -1,12 +1,19 @@
+use core::f32;
+
 use crate::materials::MaterialRef;
-use crate::objects::{HitRecord, Hittable, HittableObjects, Primitive};
+use crate::objects::{HitRecord, Hittable, InnerPrimitiveBuffer};
 use crate::types::ray::Ray;
 use na::{center, Matrix4, Point3, Vector3};
 
 type BVHNodePtr = Box<BVHNode>;
 
 // Helper
-fn partition_mut<T, F: Fn(&T) -> bool>(items: &mut [T], start: usize, end: usize, cmp: F) -> usize {
+fn partition_mut<T, F: Fn(&T) -> bool>(
+    items: &mut Vec<T>,
+    start: usize,
+    end: usize,
+    cmp: F,
+) -> usize {
     let mut i = start;
     let mut j = end - 1;
     while i < j {
@@ -60,8 +67,8 @@ impl BBox {
     #[inline(always)]
     pub fn empty() -> Self {
         Self {
-            min: Point3::new(0_f32, 0_f32, 0_f32),
-            max: Point3::new(0_f32, 0_f32, 0_f32),
+            min: Point3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY),
+            max: Point3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY),
         }
     }
 
@@ -285,58 +292,38 @@ pub struct BVHBuilder {
 }
 
 impl BVHBuilder {
-    pub fn build_from_hittable_objects(split_method: SplitMethod, objects: HittableObjects) -> BVH {
-        let builder = BVHBuilder {
-            split_method,
-            max_leaf_size: 10,
-        };
-
-        // We clone objects to avoid mutating the original
-        let mut objects = objects.objs_clone();
-        let len = objects.len();
-
-        BVH {
-            root: builder.build_bvh(&mut objects, 0, len, 0),
-            ordered_objects: objects,
-        }
-    }
-
-    pub fn build_flattened_from_hittable_objects(
+    pub fn build<T: Hittable>(
         split_method: SplitMethod,
-        objects: HittableObjects,
-    ) -> Result<FlatBVH, ()> {
+        objects: &mut InnerPrimitiveBuffer<T>,
+    ) -> Result<(), ()> {
         let builder = BVHBuilder {
             split_method,
             max_leaf_size: 3,
         };
 
-        // We clone objects to avoid mutating the original
-        let mut objects = objects.objs_clone();
-        let len = objects.len();
+        let len = objects.buffer.len();
 
-        let root = builder.build_bvh(&mut objects, 0, len, 0);
-        let nodes = builder.flatten_bvh(&root);
+        let root = builder.build_bvh(objects, 0, len, 0);
+        let nodes = builder.flatten_bvh(&root)?.into();
 
-        let nodes = nodes?.into();
-
-        Ok(FlatBVH {
-            nodes,
-            ordered_objects: objects,
-        })
+        objects.bvh = Some(nodes);
+        Ok(())
     }
 
-    fn build_bvh(
+    fn build_bvh<T: Hittable>(
         &self,
-        objects: &mut Vec<Primitive>,
+        objects: &mut InnerPrimitiveBuffer<T>,
         start: usize,
         end: usize,
         depth: usize,
     ) -> BVHNodePtr {
         assert!(start < end, "{} {}", start, end);
         // Compute bounds of all objects in the list
-        let bbox = objects[start..end]
+        let bbox = objects.buffer[start..end]
             .iter()
-            .fold(objects[start].bbox(), |acc, obj| acc.merge(&obj.bbox()));
+            .fold(objects.buffer[start].bbox(), |acc, obj| {
+                acc.merge(&obj.bbox())
+            });
 
         let size = end - start;
         // TODO: Set max leaf size.
@@ -344,11 +331,10 @@ impl BVHBuilder {
             true => BVHNode::new_leaf_as_box(start, size, bbox),
             false => {
                 let axis = bbox.longest_axis();
-                let centroid_bbox = objects[start..end]
-                    .iter()
-                    .fold(BBox::point(objects[start].bbox().centroid()), |acc, obj| {
-                        acc.enclose(&obj.bbox().centroid())
-                    });
+                let centroid_bbox = objects.buffer[start..end].iter().fold(
+                    BBox::point(objects.buffer[start].bbox().centroid()),
+                    |acc, obj| acc.enclose(&obj.bbox().centroid()),
+                );
 
                 // Return leaf if the bounding boxes are too small
                 if centroid_bbox.max[axis] - centroid_bbox.min[axis] <= 0.0001 {
@@ -357,16 +343,16 @@ impl BVHBuilder {
 
                 let mid = match self.split_method {
                     SplitMethod::EqualCounts => {
-                        objects[start..end]
+                        objects.buffer[start..end]
                             .sort_by(|a, b| BBox::bbox_comp(&a.bbox(), &b.bbox(), axis));
 
                         start + size / 2
                     }
                     SplitMethod::Middle => {
-                        let center = (objects[start].bbox().centroid()[axis]
-                            + objects[end - 1].bbox().centroid()[axis])
+                        let center = (objects.buffer[start].bbox().centroid()[axis]
+                            + objects.buffer[end - 1].bbox().centroid()[axis])
                             / 2.0;
-                        let mid = partition_mut(objects, start, end, |obj| {
+                        let mid = partition_mut(&mut objects.buffer, start, end, |obj: &T| {
                             obj.bbox().centroid()[axis] < center
                         });
 
@@ -378,7 +364,7 @@ impl BVHBuilder {
                     }
                     SplitMethod::SAH => {
                         if size <= 2 {
-                            objects[start..end]
+                            objects.buffer[start..end]
                                 .sort_by(|a, b| BBox::bbox_comp(&a.bbox(), &b.bbox(), axis));
                             let mid = start + size / 2;
                             let left = self.build_bvh(objects, start, mid, depth + 1);
@@ -390,7 +376,7 @@ impl BVHBuilder {
                         type Bucket = (u32, Option<BBox>);
                         let mut buckets: [(u32, Option<BBox>); NUM_BUCKETS] =
                             [(0 as u32, None); NUM_BUCKETS];
-                        objects[start..end].into_iter().for_each(|obj| {
+                        objects.buffer[start..end].into_iter().for_each(|obj| {
                             assert!(
                                 0.0 <= centroid_bbox.offset(&obj.bbox().centroid())[axis]
                                     && centroid_bbox.offset(&obj.bbox().centroid())[axis] <= 1.0
@@ -460,7 +446,7 @@ impl BVHBuilder {
                         let min_cost = 0.5 + ((size as f32 * min_cost) / bbox.get_surface_area());
                         let leaf_cost = size as f32;
                         if (size > self.max_leaf_size) || (min_cost < leaf_cost) {
-                            let mid = partition_mut(objects, start, end, |obj| {
+                            let mid = partition_mut(&mut objects.buffer, start, end, |obj: &T| {
                                 let bucket_idx = (NUM_BUCKETS as f32
                                     * centroid_bbox.offset(&obj.bbox().centroid())[axis])
                                     as usize;
@@ -591,9 +577,9 @@ impl BVHNode {
         }
     }
 
-    fn biased_traverse(
+    fn biased_traverse<T: Hittable>(
         &self,
-        ordered_objects: &Vec<Primitive>,
+        ordered_objects: &Vec<T>,
         ray: &Ray,
         ray_t_min: f32,
         ray_t_max: f32,
@@ -624,9 +610,9 @@ impl BVHNode {
         }
     }
 
-    fn traverse(
+    fn traverse<T: Hittable>(
         &self,
-        ordered_objects: &Vec<Primitive>,
+        ordered_objects: &Vec<T>,
         ray: &Ray,
         ray_t_min: f32,
         ray_t_max: f32,
@@ -755,12 +741,12 @@ impl FlatBVHNode {
     }
 }
 
-pub struct BVH {
+pub struct BVH<T: Hittable> {
     root: BVHNodePtr,
-    ordered_objects: Vec<Primitive>,
+    ordered_objects: Vec<T>,
 }
 
-impl Hittable for BVH {
+impl<T: Hittable> BVH<T> {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         if self
             .root
@@ -772,21 +758,29 @@ impl Hittable for BVH {
         }
         self.root.traverse(&self.ordered_objects, ray, t_min, t_max)
     }
-    fn mat(&self) -> Option<MaterialRef> {
-        None
-    }
-    fn bbox(&self) -> BBox {
-        self.root.get_bbox()
-    }
 }
 
-pub struct FlatBVH {
-    nodes: Box<[FlatBVHNode]>,
-    ordered_objects: Vec<Primitive>,
-}
+// pub struct FlatBVH<T: Hittable> {
+//     nodes: Box<[FlatBVHNode]>,
+//     ordered_objects: &Vec<T>,
+// }
 
-impl FlatBVH {
+impl<T: Hittable> InnerPrimitiveBuffer<T> {
     pub fn traverse(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        let nodes = match self.bvh.as_ref() {
+            Some(nodes) => nodes,
+            None => {
+                let mut closest_hit = None;
+                let mut closest_so_far = t_max;
+                for primitive in self.buffer.iter() {
+                    if let Some(hit) = primitive.hit(ray, t_min, closest_so_far) {
+                        closest_so_far = hit.t();
+                        closest_hit = Some(hit);
+                    }
+                }
+                return closest_hit;
+            }
+        };
         let mut closest_hit: Option<HitRecord> = None;
         let mut closest_so_far = t_max;
         let mut current_node_index = 0;
@@ -799,9 +793,8 @@ impl FlatBVH {
             ray.direction.z < 0.0,
         ];
 
-        // TODO: refactor into bbox aware traversal
         loop {
-            let node = &self.nodes[current_node_index];
+            let node = &nodes[current_node_index];
             match node.get_bbox().intersect(ray, t_min, closest_so_far) {
                 Some((_, _)) => match node {
                     FlatBVHNode::Interior {
@@ -826,7 +819,7 @@ impl FlatBVH {
                     } => {
                         for i in *offset..(*offset + (*size as usize)) {
                             if let Some(hit) =
-                                self.ordered_objects[i as usize].hit(ray, t_min, closest_so_far)
+                                self.buffer[i as usize].hit(ray, t_min, closest_so_far)
                             {
                                 closest_so_far = hit.t();
                                 closest_hit = Some(hit);
@@ -853,7 +846,7 @@ impl FlatBVH {
     }
 }
 
-impl Hittable for FlatBVH {
+impl<T: Hittable> Hittable for InnerPrimitiveBuffer<T> {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.traverse(ray, t_min, t_max)
     }
@@ -861,9 +854,6 @@ impl Hittable for FlatBVH {
         None
     }
     fn bbox(&self) -> BBox {
-        match &self.nodes[0] {
-            FlatBVHNode::Interior { bbox, .. } => *bbox,
-            FlatBVHNode::Leaf { bbox, .. } => *bbox,
-        }
+        self.bbox
     }
 }

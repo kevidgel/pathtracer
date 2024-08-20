@@ -1,19 +1,17 @@
-use std::sync::Arc;
-
 use na::{Point3, Vector3};
 
 use super::Scene;
-use crate::objects::Instance;
+use crate::objects::{Instance, PrimitiveBuffer};
 use crate::types::color::{Color, ColorOps};
 use crate::{
     camera::Camera,
     materials::{lambertian::Lambertian, light::Diffuse, metal::Metal, MaterialRegistry},
-    objects::{quad_mesh::Quad, HittableObjects, Primitive},
+    objects::quad_mesh::Quad,
 };
 
 pub struct Cornell;
 
-impl Scene for Cornell {
+impl Scene<'_> for Cornell {
     fn build_camera() -> Camera {
         Camera::new(
             1.0,
@@ -29,8 +27,8 @@ impl Scene for Cornell {
         )
     }
 
-    fn build_scene() -> HittableObjects {
-        let mut objects = HittableObjects::new();
+    fn build_scene() -> PrimitiveBuffer {
+        let mut objects = PrimitiveBuffer::new();
         let mut materials = MaterialRegistry::new();
 
         materials.create_material("red", Lambertian::new(Color::new(0.65, 0.05, 0.05)));
@@ -39,54 +37,54 @@ impl Scene for Cornell {
         materials.create_material("green", Lambertian::new(Color::new(0.12, 0.45, 0.15)));
         materials.create_material("light", Diffuse::new(Color::gray(15.0)));
 
-        let q1 = Arc::new(Quad::new(
+        let q1 = Quad::new(
             &Point3::new(555.0, 0.0, 0.0),
             &Vector3::new(0.0, 555.0, 0.0),
             &Vector3::new(0.0, 0.0, 555.0),
             materials.get("green"),
-        ));
+        );
 
-        let q2 = Arc::new(Quad::new(
+        let q2 = Quad::new(
             &Point3::new(0.0, 0.0, 0.0),
             &Vector3::new(0.0, 555.0, 0.0),
             &Vector3::new(0.0, 0.0, 555.0),
             materials.get("red"),
-        ));
+        );
 
-        let q3 = Arc::new(Quad::new(
+        let q3 = Quad::new(
             &Point3::new(343.0, 554.0, 332.0),
             &Vector3::new(-130.0, 0.0, 0.0),
             &Vector3::new(0.0, 0.0, -105.0),
             materials.get("light"),
-        ));
+        );
 
-        let q4 = Arc::new(Quad::new(
+        let q4 = Quad::new(
             &Point3::new(0.0, 0.0, 0.0),
             &Vector3::new(555.0, 0.0, 0.0),
             &Vector3::new(0.0, 0.0, 555.0),
             materials.get("white"),
-        ));
+        );
 
-        let q5 = Arc::new(Quad::new(
+        let q5 = Quad::new(
             &Point3::new(555.0, 555.0, 555.0),
             &Vector3::new(-555.0, 0.0, 0.0),
             &Vector3::new(0.0, 0.0, -555.0),
             materials.get("white"),
-        ));
+        );
 
-        let q6 = Arc::new(Quad::new(
+        let q6 = Quad::new(
             &Point3::new(0.0, 0.0, 555.5),
             &Vector3::new(555.0, 0.0, 0.0),
             &Vector3::new(0.0, 555.0, 0.0),
             materials.get("white"),
-        ));
+        );
 
-        objects.add_all(q1.to_triangles());
-        objects.add_all(q2.to_triangles());
-        objects.add_all(q3.to_triangles());
-        objects.add_all(q4.to_triangles());
-        objects.add_all(q5.to_triangles());
-        objects.add_all(q6.to_triangles());
+        objects.add_quad(q1);
+        objects.add_quad(q2);
+        objects.add_quad(q3);
+        objects.add_quad(q4);
+        objects.add_quad(q5);
+        objects.add_quad(q6);
 
         let box1 = Quad::new_box(
             &Point3::new(0.0, 0.0, 0.0),
@@ -100,16 +98,16 @@ impl Scene for Cornell {
             materials.get("white"),
         );
 
-        let mut box1 = Instance::from_obj(Arc::new(box1) as Primitive);
+        let mut box1 = Instance::from_obj(box1);
         box1.rotate_y(15.0_f32.to_radians());
         box1.translate(Vector3::new(265.0, 0.0, 295.0));
 
-        let mut box2 = Instance::from_obj(Arc::new(box2) as Primitive);
+        let mut box2 = Instance::from_obj(box2);
         box2.rotate_y(-18.0_f32.to_radians());
         box2.translate(Vector3::new(130.0, 0.0, 65.0));
 
-        objects.add(Arc::new(box1));
-        objects.add(Arc::new(box2));
+        objects.add_instance(box1);
+        objects.add_instance(box2);
 
         objects
     }
