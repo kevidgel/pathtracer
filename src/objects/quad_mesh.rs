@@ -1,13 +1,12 @@
-use std::sync::Arc;
-
 use crate::bvh::BBox;
 use crate::materials::MaterialRef;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};
 
-use super::{tri_mesh::Triangle, HitRecord, Primitive, PrimitiveBuffer};
+use super::{tri_mesh::Triangle, HitRecord, PrimitiveBuffer};
 
+#[repr(align(32))]
 #[derive(Clone)]
 pub struct Quad {
     origin: Point3<f32>,
@@ -58,42 +57,42 @@ impl Quad {
         let dy = Vector3::new(0.0, max.y - min.y, 0.0);
         let dz = Vector3::new(0.0, 0.0, max.z - min.z);
 
-        sides.add(Primitive::Quad(Quad::new(
+        sides.add_quad(Quad::new(
             &Point3::new(min.x, min.y, max.z),
             &dx,
             &dy,
             mat.clone(),
-        )));
-        sides.add(Primitive::Quad(Quad::new(
+        ));
+        sides.add_quad(Quad::new(
             &Point3::new(max.x, min.y, max.z),
             &-dz,
             &dy,
             mat.clone(),
-         )));
-        sides.add(Primitive::Quad(Quad::new(
+        ));
+        sides.add_quad(Quad::new(
             &Point3::new(max.x, min.y, min.z),
             &-dx,
             &dy,
             mat.clone(),
-        )));
-        sides.add(Primitive::Quad(Quad::new(
+        ));
+        sides.add_quad(Quad::new(
             &Point3::new(min.x, min.y, min.z),
             &dz,
             &dy,
             mat.clone(),
-        )));
-        sides.add(Primitive::Quad(Quad::new(
+        ));
+        sides.add_quad(Quad::new(
             &Point3::new(min.x, max.y, max.z),
             &dx,
             &-dz,
             mat.clone(),
-        )));
-        sides.add(Primitive::Quad(Quad::new(
+        ));
+        sides.add_quad(Quad::new(
             &Point3::new(min.x, min.y, min.z),
             &dx,
             &dz,
             mat.clone(),
-        )));
+        ));
 
         sides
     }

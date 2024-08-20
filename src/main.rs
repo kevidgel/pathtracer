@@ -12,7 +12,9 @@ mod types;
 
 use eframe::egui;
 use image::RgbImage;
-use objects::Hittable;
+use std::sync::mpsc;
+
+
 use scenes::{cornell, lucy, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -20,6 +22,7 @@ use std::time::{Duration, SystemTime};
 
 struct PathtracerApp {
     image_buffer: Arc<Mutex<RgbImage>>,
+    rx: mpsc::Receiver<()>,
     texture: Option<egui::TextureHandle>,
     width: usize,
     height: usize,
@@ -27,7 +30,10 @@ struct PathtracerApp {
 
 impl eframe::App for PathtracerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        if self.rx.try_recv().is_ok() {
+            log::info!("Done");
+        }
+        egui::CentralPanel::default().frame(egui::containers::Frame::none()).show(ctx, |ui| {
             let buffer = self.image_buffer.lock().unwrap();
 
             if self.texture.is_none() {
@@ -81,20 +87,30 @@ fn main() -> eframe::Result {
 
     let image_buffer_to_render = image_buffer.clone();
 
+    let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
         let to_save = image_buffer_to_render.clone();
         camera.render(&objects, image_buffer_to_render);
         to_save.lock().unwrap().save("strat.png").unwrap();
+        tx.send(()).unwrap();
     });
 
     let app = PathtracerApp {
         image_buffer: image_buffer.clone(),
+        rx,
         texture: None,
         width,
         height,
     };
 
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        viewport: eframe::egui::ViewportBuilder {
+            inner_size: Some(egui::Vec2::new(width as f32, height as f32)),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
     eframe::run_native(
         "Pathtracer",
         native_options,

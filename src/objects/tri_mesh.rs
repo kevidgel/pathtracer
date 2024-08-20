@@ -18,6 +18,7 @@ fn get_normal(v0: &Point3<f32>, v1: &Point3<f32>, v2: &Point3<f32>) -> Vector3<f
     (v1 - v0).cross(&(v2 - v0)).normalize()
 }
 
+#[repr(align(32))]
 #[derive(Clone)]
 pub struct Triangle {
     data: TriangleData,

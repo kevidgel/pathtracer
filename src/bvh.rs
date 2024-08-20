@@ -1,15 +1,19 @@
 use core::f32;
-use std::sync::Arc;
 
 use crate::materials::MaterialRef;
-use crate::objects::{HitRecord, Hittable, Primitive, InnerPrimitiveBuffer};
+use crate::objects::{HitRecord, Hittable, InnerPrimitiveBuffer};
 use crate::types::ray::Ray;
 use na::{center, Matrix4, Point3, Vector3};
 
 type BVHNodePtr = Box<BVHNode>;
 
 // Helper
-fn partition_mut<T, F: Fn(&T) -> bool>(items: &mut Vec<T>, start: usize, end: usize, cmp: F) -> usize {
+fn partition_mut<T, F: Fn(&T) -> bool>(
+    items: &mut Vec<T>,
+    start: usize,
+    end: usize,
+    cmp: F,
+) -> usize {
     let mut i = start;
     let mut j = end - 1;
     while i < j {
@@ -64,7 +68,7 @@ impl BBox {
     pub fn empty() -> Self {
         Self {
             min: Point3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY),
-            max: Point3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY), 
+            max: Point3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY),
         }
     }
 
@@ -317,7 +321,9 @@ impl BVHBuilder {
         // Compute bounds of all objects in the list
         let bbox = objects.buffer[start..end]
             .iter()
-            .fold(objects.buffer[start].bbox(), |acc, obj| acc.merge(&obj.bbox()));
+            .fold(objects.buffer[start].bbox(), |acc, obj| {
+                acc.merge(&obj.bbox())
+            });
 
         let size = end - start;
         // TODO: Set max leaf size.
@@ -325,11 +331,10 @@ impl BVHBuilder {
             true => BVHNode::new_leaf_as_box(start, size, bbox),
             false => {
                 let axis = bbox.longest_axis();
-                let centroid_bbox = objects.buffer[start..end]
-                    .iter()
-                    .fold(BBox::point(objects.buffer[start].bbox().centroid()), |acc, obj| {
-                        acc.enclose(&obj.bbox().centroid())
-                    });
+                let centroid_bbox = objects.buffer[start..end].iter().fold(
+                    BBox::point(objects.buffer[start].bbox().centroid()),
+                    |acc, obj| acc.enclose(&obj.bbox().centroid()),
+                );
 
                 // Return leaf if the bounding boxes are too small
                 if centroid_bbox.max[axis] - centroid_bbox.min[axis] <= 0.0001 {
@@ -572,9 +577,9 @@ impl BVHNode {
         }
     }
 
-    fn biased_traverse(
+    fn biased_traverse<T: Hittable>(
         &self,
-        ordered_objects: &Vec<Primitive>,
+        ordered_objects: &Vec<T>,
         ray: &Ray,
         ray_t_min: f32,
         ray_t_max: f32,
@@ -605,9 +610,9 @@ impl BVHNode {
         }
     }
 
-    fn traverse(
+    fn traverse<T: Hittable>(
         &self,
-        ordered_objects: &Vec<Primitive>,
+        ordered_objects: &Vec<T>,
         ray: &Ray,
         ray_t_min: f32,
         ray_t_max: f32,
@@ -736,12 +741,12 @@ impl FlatBVHNode {
     }
 }
 
-pub struct BVH {
+pub struct BVH<T: Hittable> {
     root: BVHNodePtr,
-    ordered_objects: Vec<Primitive>,
+    ordered_objects: Vec<T>,
 }
 
-impl Hittable for BVH {
+impl<T: Hittable> BVH<T> {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         if self
             .root
@@ -753,12 +758,6 @@ impl Hittable for BVH {
         }
         self.root.traverse(&self.ordered_objects, ray, t_min, t_max)
     }
-    fn mat(&self) -> Option<MaterialRef> {
-        None
-    }
-    fn bbox(&self) -> BBox {
-        self.root.get_bbox()
-    }
 }
 
 // pub struct FlatBVH<T: Hittable> {
@@ -766,7 +765,7 @@ impl Hittable for BVH {
 //     ordered_objects: &Vec<T>,
 // }
 
-impl <T: Hittable> InnerPrimitiveBuffer<T> {
+impl<T: Hittable> InnerPrimitiveBuffer<T> {
     pub fn traverse(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let nodes = match self.bvh.as_ref() {
             Some(nodes) => nodes,
@@ -847,7 +846,7 @@ impl <T: Hittable> InnerPrimitiveBuffer<T> {
     }
 }
 
-impl <T: Hittable> Hittable for InnerPrimitiveBuffer<T> {
+impl<T: Hittable> Hittable for InnerPrimitiveBuffer<T> {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.traverse(ray, t_min, t_max)
     }

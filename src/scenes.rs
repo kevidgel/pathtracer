@@ -1,4 +1,3 @@
-
 use crate::camera::Camera;
 use crate::objects::PrimitiveBuffer;
 

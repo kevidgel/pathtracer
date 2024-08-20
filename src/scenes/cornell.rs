@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use na::{Point3, Vector3};
 
 use super::Scene;
@@ -8,7 +6,7 @@ use crate::types::color::{Color, ColorOps};
 use crate::{
     camera::Camera,
     materials::{lambertian::Lambertian, light::Diffuse, metal::Metal, MaterialRegistry},
-    objects::{quad_mesh::Quad, Primitive},
+    objects::quad_mesh::Quad,
 };
 
 pub struct Cornell;
@@ -81,12 +79,12 @@ impl Scene<'_> for Cornell {
             materials.get("white"),
         );
 
-        objects.add(Primitive::Quad(q1));
-        objects.add(Primitive::Quad(q2));
-        objects.add(Primitive::Quad(q3));
-        objects.add(Primitive::Quad(q4));
-        objects.add(Primitive::Quad(q5));
-        objects.add(Primitive::Quad(q6));
+        objects.add_quad(q1);
+        objects.add_quad(q2);
+        objects.add_quad(q3);
+        objects.add_quad(q4);
+        objects.add_quad(q5);
+        objects.add_quad(q6);
 
         let box1 = Quad::new_box(
             &Point3::new(0.0, 0.0, 0.0),
@@ -108,8 +106,8 @@ impl Scene<'_> for Cornell {
         box2.rotate_y(-18.0_f32.to_radians());
         box2.translate(Vector3::new(130.0, 0.0, 65.0));
 
-        objects.add(Primitive::Instance(box1));
-        objects.add(Primitive::Instance(box2));
+        objects.add_instance(box1);
+        objects.add_instance(box2);
 
         objects
     }

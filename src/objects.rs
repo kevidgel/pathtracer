@@ -6,11 +6,9 @@ use crate::bvh::{BBox, BVHBuilder, FlatBVHNode, SplitMethod};
 use crate::materials::MaterialRef;
 use crate::types::ray::Ray;
 use na::{Matrix4, Point3, Vector3};
-use tri_mesh::Triangle;
-use sphere::Sphere;
 use quad_mesh::Quad;
-use std::sync::Arc;
-
+use sphere::Sphere;
+use tri_mesh::Triangle;
 
 pub struct HitRecord {
     // Normal stuff
@@ -97,49 +95,13 @@ pub trait Hittable: Sync + Send {
     fn bbox(&self) -> BBox;
 }
 
-pub enum Primitive {
-    Triangle(Triangle),
-    Sphere(Sphere),
-    Quad(Quad),
-    Instance(Instance),
-}
-
-impl Hittable for Primitive {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        match self {
-            Primitive::Triangle(tri) => tri.hit(ray, t_min, t_max),
-            Primitive::Sphere(sph) => sph.hit(ray, t_min, t_max),
-            Primitive::Quad(q) => q.hit(ray, t_min, t_max),
-            Primitive::Instance(i) => i.hit(ray, t_min, t_max),
-        }
-    }
-
-    fn mat(&self) -> Option<MaterialRef> {
-        match self {
-            Primitive::Triangle(tri) => tri.mat(),
-            Primitive::Sphere(sph) => sph.mat(),
-            Primitive::Quad(q) => q.mat(),
-            Primitive::Instance(i) => i.mat(),
-        }
-    }
-
-    fn bbox(&self) -> BBox {
-        match self {
-            Primitive::Triangle(tri) => tri.bbox(),
-            Primitive::Sphere(sph) => sph.bbox(),
-            Primitive::Quad(q) => q.bbox(),
-            Primitive::Instance(i) => i.bbox(),
-        }
-    }
-}
-
 pub struct InnerPrimitiveBuffer<T: Hittable> {
     pub buffer: Vec<T>,
     pub bvh: Option<Box<[FlatBVHNode]>>,
-    pub bbox: BBox
+    pub bbox: BBox,
 }
 
-impl <T: Hittable> InnerPrimitiveBuffer<T> {
+impl<T: Hittable> InnerPrimitiveBuffer<T> {
     pub fn new() -> InnerPrimitiveBuffer<T> {
         InnerPrimitiveBuffer {
             buffer: Vec::new(),
@@ -163,6 +125,7 @@ pub struct PrimitiveBuffer {
     pub spheres: InnerPrimitiveBuffer<Sphere>,
     pub quads: InnerPrimitiveBuffer<Quad>,
     pub instances: InnerPrimitiveBuffer<Instance>,
+    pub bbox: BBox,
 }
 
 impl PrimitiveBuffer {
@@ -170,18 +133,30 @@ impl PrimitiveBuffer {
         PrimitiveBuffer {
             triangles: InnerPrimitiveBuffer::new(),
             spheres: InnerPrimitiveBuffer::new(),
-            quads:  InnerPrimitiveBuffer::new(),
+            quads: InnerPrimitiveBuffer::new(),
             instances: InnerPrimitiveBuffer::new(),
+            bbox: BBox::empty(),
         }
     }
 
-    pub fn add(&mut self, primitive: Primitive) {
-        match primitive {
-            Primitive::Triangle(tri) => self.triangles.push(tri),
-            Primitive::Sphere(sph) => self.spheres.push(sph),
-            Primitive::Quad(q) => self.quads.push(q),
-            Primitive::Instance(i) => self.instances.push(i),
-        }
+    pub fn add_triangle(&mut self, triangle: Triangle) {
+        self.bbox = self.bbox.merge(&triangle.bbox());
+        self.triangles.push(triangle);
+    }
+
+    pub fn add_sphere(&mut self, sphere: Sphere) {
+        self.bbox = self.bbox.merge(&sphere.bbox());
+        self.spheres.push(sphere);
+    }
+
+    pub fn add_quad(&mut self, quad: Quad) {
+        self.bbox = self.bbox.merge(&quad.bbox());
+        self.quads.push(quad);
+    }
+
+    pub fn add_instance(&mut self, instance: Instance) {
+        self.bbox = self.bbox.merge(&instance.bbox());
+        self.instances.push(instance);
     }
 
     pub fn build_bvh(&mut self) {
@@ -205,10 +180,8 @@ impl PrimitiveBuffer {
             BVHBuilder::build(SplitMethod::SAH, &mut self.instances).unwrap();
         }
     }
-}
 
-impl Hittable for PrimitiveBuffer {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let mut closest_so_far = t_max;
         let hit = self.triangles.hit(ray, t_min, closest_so_far);
         match hit.as_ref() {
@@ -234,14 +207,13 @@ impl Hittable for PrimitiveBuffer {
         let hit = self.instances.hit(ray, t_min, closest_so_far).or(hit);
         hit
     }
-    fn mat(&self) -> Option<MaterialRef> {
-        None
-    }
-    fn bbox(&self) -> BBox {
-        self.instances.bbox().merge(&self.triangles.bbox().merge(&self.spheres.bbox()).merge(&self.quads.bbox()))
+
+    pub fn bbox(&self) -> BBox {
+        self.bbox
     }
 }
 
+#[repr(align(32))]
 pub struct Instance {
     obj: PrimitiveBuffer,
     transform: Matrix4<f32>,
@@ -361,7 +333,7 @@ impl Hittable for Instance {
     }
 
     fn mat(&self) -> Option<MaterialRef> {
-        self.obj.mat()
+        None
     }
 
     fn bbox(&self) -> BBox {

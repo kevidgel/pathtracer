@@ -23,7 +23,7 @@ pub fn refract(uv: &Vector3<f32>, n: &Vector3<f32>, etai_over_etat: f32) -> Vect
     r_out_perp + r_out_parallel
 }
 
-pub trait Material : Send + Sync {
+pub trait Material: Send + Sync {
     fn scatter(
         &self,
         rng: Option<&mut ThreadRng>,
