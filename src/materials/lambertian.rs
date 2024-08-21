@@ -3,8 +3,9 @@ use crate::objects::HitRecord;
 use crate::textures::Solid;
 use crate::textures::TextureRef;
 use crate::types::color::ColorOps;
-use crate::types::sampler::{Sampler, SphereSampler};
+use crate::types::pdf::{PDF, CosineWeightedHemispherePDF, SpherePDF};
 use crate::types::{color::Color, ray::Ray};
+use crate::types::onb::OrthonormalBasis;
 use rand::rngs::ThreadRng;
 use std::sync::Arc;
 
@@ -29,86 +30,24 @@ impl Lambertian {
 impl Material for Lambertian {
     fn scatter(
         &self,
-        rng: Option<&mut ThreadRng>,
+        rng: &mut ThreadRng,
         _ray_in: &Ray,
         rec: &HitRecord,
     ) -> Option<(Color, Ray)> {
-        let sampler = SphereSampler::unit();
-
-        let rng = match rng {
-            Some(rng) => rng,
-            None => &mut rand::thread_rng(),
-        };
+        let cosine_pdf = CosineWeightedHemispherePDF::new(&rec.normal());
 
         // Scatter
-        let scatter_direction = rec.normal() + sampler.sample(rng).normalize();
-
-        // Reject small offsets
-        const EPSILON: f32 = 0.0001;
-        let scattered: Ray = match scatter_direction.x.abs() < EPSILON
-            && scatter_direction.y.abs() < EPSILON
-            && scatter_direction.z.abs() < EPSILON
-        {
-            true => Ray::new(rec.p(), rec.normal()),
-            false => Ray::new(rec.p(), scatter_direction),
-        };
+        let scatter_direction = &cosine_pdf.generate(rng);
+        let scattered = Ray::new(rec.p(), scatter_direction.normalize());
 
         // Attenuation
-
         let attenuation = self.texture.value(rec.u(), rec.v(), &rec.p());
 
         Some((attenuation, scattered))
     }
 
     fn scattering_pdf(&self, _ray_in: &Ray, ray_out: &Ray, rec: &HitRecord) -> f32 {
-        let cos_theta = rec.normal().dot(&ray_out.direction.normalize());
-
-        if cos_theta < 0.0 {
-            0.0
-        } else {
-            cos_theta / std::f32::consts::PI
-        }
-    }
-}
-
-pub struct Diffuse {
-    albedo: Color,
-}
-
-impl Diffuse {
-    pub fn new(albedo: Color) -> Self {
-        Self { albedo }
-    }
-}
-
-impl Material for Diffuse {
-    fn scatter(
-        &self,
-        rng: Option<&mut ThreadRng>,
-        _ray_in: &Ray,
-        rec: &HitRecord,
-    ) -> Option<(Color, Ray)> {
-        let sampler = SphereSampler::unit();
-
-        let rng = match rng {
-            Some(rng) => rng,
-            None => &mut rand::thread_rng(),
-        };
-
-        // Scatter
-        let scatter_direction = sampler.sample_on_hemisphere(rng, &rec.normal());
-
-        let scattered: Ray = match scatter_direction.x < f32::EPSILON
-            && scatter_direction.y < f32::EPSILON
-            && scatter_direction.z < f32::EPSILON
-        {
-            true => Ray::new(rec.p(), rec.normal()),
-            false => Ray::new(rec.p(), scatter_direction),
-        };
-
-        // Attenuation
-        let attenuation = self.albedo;
-
-        Some((attenuation, scattered))
+        let cosine_pdf = CosineWeightedHemispherePDF::new(&rec.normal());
+        cosine_pdf.value(&ray_out.direction)
     }
 }

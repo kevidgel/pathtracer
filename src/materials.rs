@@ -26,11 +26,11 @@ pub fn refract(uv: &Vector3<f32>, n: &Vector3<f32>, etai_over_etat: f32) -> Vect
 pub trait Material: Send + Sync {
     fn scatter(
         &self,
-        rng: Option<&mut ThreadRng>,
+        rng: &mut ThreadRng,
         ray_in: &Ray,
         rec: &HitRecord,
     ) -> Option<(Color, Ray)>;
-    fn emitted(&self, _u: f32, _v: f32, _p: &Point3<f32>) -> Color {
+    fn emitted(&self, _ray_in: &Ray, _rec: &HitRecord, _u: f32, _v: f32, _p: &Point3<f32>) -> Color {
         Color::zeros()
     }
     fn scattering_pdf(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> f32 {

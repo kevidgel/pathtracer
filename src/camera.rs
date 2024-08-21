@@ -10,6 +10,7 @@ use image::RgbImage;
 use indicatif::{ProgressIterator, ProgressState, ProgressStyle};
 use na::{Point3, Vector3};
 use rand::rngs::ThreadRng;
+use rand::Rng;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::cmp;
 use std::fmt::Write;
@@ -253,6 +254,7 @@ impl Camera {
         objects: &PrimitiveBuffer,
         max_depth: u32,
     ) -> Color {
+        const C: f32 = 0.0;
         if max_depth == 0 {
             return Color::zeros();
         }
@@ -260,21 +262,30 @@ impl Camera {
             Some(rec) => {
                 match rec.material() {
                     Some(material) => {
-                        let emitted = material.emitted(rec.u(), rec.v(), &rec.p());
-                        match material.scatter(Some(rng), ray, &rec) {
+                        let emitted = material.emitted(&ray, &rec, rec.u(), rec.v(), &rec.p());
+                        match material.scatter(rng, ray, &rec) {
                             Some((attenuation, scattered)) => {
-                                let scattering_pdf = 1.0; //material.scattering_pdf(&ray, &scattered, &rec);
+                                let scattering_pdf = material.scattering_pdf(&ray, &scattered, &rec);
                                 let pdf_value = scattering_pdf;
-                                emitted
-                                    + scattering_pdf
-                                        * attenuation.component_mul(&self.ray_color(
-                                            rng,
-                                            &scattered,
-                                            objects,
-                                            max_depth - 1,
-                                        ))
-                                        / pdf_value
+                                let throughput = scattering_pdf * attenuation / pdf_value;
+
+                                // Russian Roulette
+                                let weight = 1.0 - throughput.norm().clamp(0.0, 1.0);
+                                if rng.gen_bool(weight as f64) {
+                                    return Color::gray(C);
+                                }
+
+                                let next_hit = &self.ray_color(
+                                    rng,
+                                    &scattered,
+                                    objects,
+                                    max_depth - 1,
+                                );
+                                let radiance = emitted + throughput.component_mul(next_hit);
+
+                                (radiance - (weight * Color::gray(C))) / (1.0 - weight)
                             }
+                            // Purely Emissive
                             None => emitted,
                         }
                     }

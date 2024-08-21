@@ -26,18 +26,13 @@ impl Metal {
 impl Material for Metal {
     fn scatter(
         &self,
-        rng: Option<&mut ThreadRng>,
+        rng: &mut ThreadRng,
         ray_in: &Ray,
         rec: &HitRecord,
     ) -> Option<(Color, Ray)> {
         let fuzz: Vector3<f32> = if self.fuzz > 0.0 {
-            match rng {
-                Some(rng) => {
-                    let sampler = SphereSampler::unit();
-                    self.fuzz * sampler.sample(rng).normalize()
-                }
-                None => Vector3::zeros(),
-            }
+            let sampler = SphereSampler::unit();
+            self.fuzz * sampler.sample(rng).normalize()
         } else {
             Vector3::zeros()
         };

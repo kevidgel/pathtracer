@@ -1,7 +1,8 @@
+// This entire file is probably really stupid lmao
+// wtf do we need a stateful sampler?
 use nalgebra::Vector3;
 use rand::Rng;
 
-// TODO: Maybe parameterize this trait
 pub trait Sampler<T> {
     fn sample(&self, rng: &mut impl Rng) -> T;
 }
@@ -82,6 +83,18 @@ impl SphereSampler {
         } else {
             -sample
         }
+    }
+
+    pub fn sample_cos(&self, rng: &mut impl Rng) -> Vector3<f32> {
+        let r1: f32 = rng.gen_range(0.0..1.0);
+        let r2: f32 = rng.gen_range(0.0..1.0);
+
+        let phi = 2.0 * std::f32::consts::PI * r1;
+        let x = phi.cos() * r2.sqrt();
+        let z = phi.sin() * r2.sqrt();
+        let y = (1.0 - r2).sqrt();
+
+        Vector3::new(x, y, z)
     }
 }
 

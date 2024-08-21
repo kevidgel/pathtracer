@@ -88,7 +88,7 @@ fn main() -> eframe::Result {
     let image_buffer_to_render = image_buffer.clone();
 
     let (tx, rx) = mpsc::channel();
-    thread::spawn(move || {
+    let render_handle = thread::spawn(move || {
         let to_save = image_buffer_to_render.clone();
         camera.render(&objects, image_buffer_to_render);
         to_save.lock().unwrap().save("strat.png").unwrap();

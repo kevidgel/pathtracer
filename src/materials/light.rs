@@ -34,14 +34,17 @@ impl Diffuse {
 impl Material for Diffuse {
     fn scatter(
         &self,
-        _rng: Option<&mut ThreadRng>,
+        _rng: &mut ThreadRng,
         _ray_in: &Ray,
         _rec: &HitRecord,
     ) -> Option<(Color, Ray)> {
         None
     }
 
-    fn emitted(&self, u: f32, v: f32, p: &Point3<f32>) -> Color {
+    fn emitted(&self, _ray: &Ray, rec: &HitRecord, u: f32, v: f32, p: &Point3<f32>) -> Color {
+        if !rec.front_face() {
+            return Color::zeros();
+        }
         self.texture.value(u, v, p)
     }
 }

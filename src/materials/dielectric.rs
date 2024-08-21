@@ -24,7 +24,7 @@ impl Dielectric {
 impl Material for Dielectric {
     fn scatter(
         &self,
-        rng: Option<&mut ThreadRng>,
+        rng: &mut ThreadRng,
         ray_in: &Ray,
         rec: &HitRecord,
     ) -> Option<(Color, Ray)> {
@@ -39,10 +39,7 @@ impl Material for Dielectric {
         let cos_theta = (-unit_direction).dot(&rec.normal()).min(1.0);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
 
-        let reflect_thresh: f32 = match rng {
-            Some(rng) => rng.gen_range(0.0..1.0),
-            None => 0.5_f32,
-        };
+        let reflect_thresh: f32 = rng.gen_range(0.0..1.0);
 
         let cannot_refract = ri * sin_theta > 1.0;
         let direction =
