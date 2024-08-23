@@ -281,44 +281,62 @@ impl Camera {
                     return emitted;
                 }
                 
-                // Get next ray
-                const P: f32 = 0.5_f32;
-                let (mut next_ray, scatter) = if rng.gen_bool(P as f64) {
-                    (material.scatter(rng, ray, &rec).unwrap(), true)
-                } else {
-                    (Ray::new(rec.p(), lights.sample(rng, &rec.p())), false)
-                };
-
-                let scatter_pdf = material.scattering_pdf(&ray, &next_ray, &rec);
-                let light_pdf = lights.pdf(&next_ray);
-                let pdf = P * scatter_pdf + (1.0 - P) * light_pdf;
-
-                // BSDF
-                let throughput = material.bsdf_evaluate(&ray, &next_ray, &rec) / pdf;
-
-                // Russian Roulette
-                let weight = if !scatter {
-                    0.0
-                } else {
-                    1.0 - throughput.x.max(throughput.y.max(throughput.z)).clamp(0.0, 1.0) 
-                };
-                if rng.gen_bool(weight as f64) {
-                    return Color::gray(C);
-                }
-
-                // Sample next ray
+                // Get light ray
+                let mut light_ray = Ray::new(rec.p(), lights.sample(rng, &rec.p()));
+                let sample_light = &self.ray_color(
+                    rng,
+                    &mut light_ray,
+                    objects,
+                    lights,
+                    2,
+                );
+                let light_pdf = lights.pdf(&light_ray);
+                let light_throughput = material.bsdf_evaluate(&ray, &light_ray, &rec) / light_pdf;
+                
+                // Get scattered ray
+                let mut scattered_ray = material.scatter(rng, ray, &rec).unwrap();
                 let sample_color = &self.ray_color(
                     rng,
-                    &mut next_ray,
+                    &mut scattered_ray,
                     objects,
                     lights,
                     max_depth - 1,
                 );
-                let radiance = emitted + throughput.component_mul(sample_color);
+                let scatter_pdf = material.scattering_pdf(&ray, &scattered_ray, &rec);
+                let scatter_throughput = material.bsdf_evaluate(&ray, &scattered_ray, &rec) / scatter_pdf;
 
-                (radiance - (weight * Color::gray(C))) / (1.0 - weight)
+                // Weight
+                let light_weight = power_heuristic(1, light_pdf, 1, scatter_pdf);
+                let scatter_weight = 1.0 - light_weight;
+
+                if rng.gen_bool(0.0001) {
+                    println!("{}", scatter_weight);
+                }
+
+                let radiance = (light_weight * sample_light.component_mul(&light_throughput)) + (scatter_weight * sample_color.component_mul(&scatter_throughput));
+
+                // // Russian Roulette
+                // let weight = if !scatter {
+                //     0.0
+                // } else {
+                //     1.0 - throughput.x.max(throughput.y.max(throughput.z)).clamp(0.0, 1.0) 
+                // };
+                // if rng.gen_bool(weight as f64) {
+                //     return Color::gray(C);
+                // }
+                //let radiance = emitted + throughput.component_mul(sample_color);
+
+                radiance
+
+                //(radiance - (weight * Color::gray(C))) / (1.0 - weight)
             }
             None => self.background,
         }
     }
+}
+
+fn power_heuristic(nf: u32, f_pdf: f32, ng: u32, g_pdf: f32) -> f32 {
+    let f = nf as f32 * f_pdf;
+    let g = ng as f32 * g_pdf;
+    f * f / (f * f + g * g)
 }

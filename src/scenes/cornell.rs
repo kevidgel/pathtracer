@@ -53,7 +53,7 @@ impl Scene for Cornell {
         );
 
         let q3 = Quad::new(
-            &Point3::new(343.0, 554.0, 332.0),
+            &Point3::new(343.0, 554.98, 332.0),
             &Vector3::new(-130.0, 0.0, 0.0),
             &Vector3::new(0.0, 0.0, -105.0),
             materials.get("light"),
