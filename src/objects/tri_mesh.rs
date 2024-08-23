@@ -164,7 +164,7 @@ impl Vertex {
 }
 
 impl Hittable for Triangle {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
         // Moller-Trumbore algorithm
         let v0 = &self.position(0);
         let v1 = &self.position(1);
@@ -195,7 +195,7 @@ impl Hittable for Triangle {
         }
         let uvt = Vector3::new(u, v, (&e2_x_s).dot(&e1) * inv_triple);
 
-        match t_min <= uvt[2] && uvt[2] <= t_max {
+        match ray.t_min <= uvt[2] && uvt[2] <= ray.t_max {
             true => {
                 // Interpolate
                 // TODO: Rewrite this using BLAS
@@ -205,6 +205,7 @@ impl Hittable for Triangle {
                 let normal = interpolated.normal().normalize();
                 let position = interpolated.position();
                 let tex_coord = interpolated.uv();
+                ray.t_max = t;
                 Some(HitRecord::new(
                     ray,
                     position,

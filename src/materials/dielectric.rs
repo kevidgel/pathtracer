@@ -22,13 +22,20 @@ impl Dielectric {
 }
 
 impl Material for Dielectric {
+    fn is_emissive(&self) -> bool {
+        false
+    }
+
+    fn is_specular(&self) -> bool {
+        true
+    }
+
     fn scatter(
         &self,
         rng: &mut ThreadRng,
         ray_in: &Ray,
         rec: &HitRecord,
-    ) -> Option<(Color, Ray)> {
-        let attenuation = Color::gray(1.0_f32);
+    ) -> Option<Ray> {
         let ri: f32 = if rec.front_face() {
             1.0 / self.ref_idx
         } else {
@@ -49,6 +56,10 @@ impl Material for Dielectric {
             };
 
         let scattered = Ray::new(rec.p(), direction);
-        Some((attenuation, scattered))
+        Some(scattered)
+    }
+
+    fn bsdf_evaluate(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> Color {
+        Color::gray(1.0_f32)
     }
 }

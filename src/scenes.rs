@@ -1,10 +1,10 @@
 use crate::camera::Camera;
-use crate::objects::PrimitiveBuffer;
+use crate::objects::{LightBuffer, PrimitiveBuffer};
 
 pub mod cornell;
 pub mod lucy;
 
-pub trait Scene<'a> {
-    fn build_scene() -> PrimitiveBuffer;
+pub trait Scene {
+    fn build_scene() -> (PrimitiveBuffer, LightBuffer);
     fn build_camera() -> Camera;
 }

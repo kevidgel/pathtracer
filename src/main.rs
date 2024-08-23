@@ -67,7 +67,7 @@ fn main() -> eframe::Result {
     let now = SystemTime::now();
     let camera = cornell::Cornell::build_camera();
     let (width, height) = (camera.get_width() as usize, camera.get_height() as usize);
-    let mut objects = cornell::Cornell::build_scene();
+    let (mut objects, mut lights) = cornell::Cornell::build_scene();
     objects.build_bvh();
 
     let build_elapsed = match now.elapsed() {
@@ -90,7 +90,7 @@ fn main() -> eframe::Result {
     let (tx, rx) = mpsc::channel();
     let render_handle = thread::spawn(move || {
         let to_save = image_buffer_to_render.clone();
-        camera.render(&objects, image_buffer_to_render);
+        camera.render(&objects, &lights, image_buffer_to_render);
         to_save.lock().unwrap().save("strat.png").unwrap();
         tx.send(()).unwrap();
     });

@@ -28,22 +28,31 @@ impl Lambertian {
 }
 
 impl Material for Lambertian {
+    fn is_emissive(&self) -> bool {
+        false
+    }
+
+    fn is_specular(&self) -> bool {
+        false
+    }
+
     fn scatter(
         &self,
         rng: &mut ThreadRng,
         _ray_in: &Ray,
         rec: &HitRecord,
-    ) -> Option<(Color, Ray)> {
+    ) -> Option<Ray> {
         let cosine_pdf = CosineWeightedHemispherePDF::new(&rec.normal());
 
         // Scatter
         let scatter_direction = &cosine_pdf.generate(rng);
         let scattered = Ray::new(rec.p(), scatter_direction.normalize());
 
-        // Attenuation
-        let attenuation = self.texture.value(rec.u(), rec.v(), &rec.p());
+        Some(scattered)
+    }
 
-        Some((attenuation, scattered))
+    fn bsdf_evaluate(&self, ray_in: &Ray, ray_out: &Ray, rec: &HitRecord) -> Color {
+        self.texture.value(rec.u(), rec.v(), &rec.p()) * self.scattering_pdf(ray_in, ray_out, rec)
     }
 
     fn scattering_pdf(&self, _ray_in: &Ray, ray_out: &Ray, rec: &HitRecord) -> f32 {

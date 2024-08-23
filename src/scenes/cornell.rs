@@ -1,7 +1,7 @@
 use na::{Point3, Vector3};
 
 use super::Scene;
-use crate::objects::{Instance, PrimitiveBuffer};
+use crate::objects::{Instance, LightBuffer, PrimitiveBuffer};
 use crate::types::color::{Color, ColorOps};
 use crate::{
     camera::Camera,
@@ -11,7 +11,7 @@ use crate::{
 
 pub struct Cornell;
 
-impl Scene<'_> for Cornell {
+impl Scene for Cornell {
     fn build_camera() -> Camera {
         Camera::new(
             1.0,
@@ -21,14 +21,15 @@ impl Scene<'_> for Cornell {
             Point3::new(278.0, 278.0, 0.0),
             1.0,
             0.0,
-            1024,
+            10240,
             16,
             Color::gray(0.0),
         )
     }
 
-    fn build_scene() -> PrimitiveBuffer {
+    fn build_scene() -> (PrimitiveBuffer, LightBuffer)  {
         let mut objects = PrimitiveBuffer::new();
+        let mut lights = LightBuffer::new();
         let mut materials = MaterialRegistry::new();
 
         materials.create_material("red", Lambertian::new(Color::new(0.65, 0.05, 0.05)));
@@ -81,6 +82,7 @@ impl Scene<'_> for Cornell {
 
         objects.add_quad(q1);
         objects.add_quad(q2);
+        lights.add_quad(q3.clone());
         objects.add_quad(q3);
         objects.add_quad(q4);
         objects.add_quad(q5);
@@ -109,6 +111,6 @@ impl Scene<'_> for Cornell {
         objects.add_instance(box1);
         objects.add_instance(box2);
 
-        objects
+        (objects, lights)
     }
 }

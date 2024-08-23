@@ -24,12 +24,21 @@ pub fn refract(uv: &Vector3<f32>, n: &Vector3<f32>, etai_over_etat: f32) -> Vect
 }
 
 pub trait Material: Send + Sync {
+    fn is_emissive(&self) -> bool {
+        false
+    }
+    fn is_specular(&self) -> bool {
+        false
+    }
     fn scatter(
         &self,
         rng: &mut ThreadRng,
         ray_in: &Ray,
         rec: &HitRecord,
-    ) -> Option<(Color, Ray)>;
+    ) -> Option<Ray>;
+    fn bsdf_evaluate(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> Color {
+        Color::zeros()
+    }
     fn emitted(&self, _ray_in: &Ray, _rec: &HitRecord, _u: f32, _v: f32, _p: &Point3<f32>) -> Color {
         Color::zeros()
     }

@@ -9,6 +9,7 @@ use na::{Matrix4, Point3, Vector3};
 use quad_mesh::Quad;
 use sphere::Sphere;
 use tri_mesh::Triangle;
+use rand::Rng;
 
 pub struct HitRecord {
     // Normal stuff
@@ -90,9 +91,15 @@ impl HitRecord {
 }
 
 pub trait Hittable: Sync + Send {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
+    fn hit(&self, ray: &mut Ray) -> Option<HitRecord>;
     fn mat(&self) -> Option<MaterialRef>;
     fn bbox(&self) -> BBox;
+    fn pdf(&self, _ray: &Ray) -> f32 {
+        0.0
+    }
+    fn sample(&self, _rng: &mut impl Rng, _origin: &Point3<f32>) -> Vector3<f32> {
+        Vector3::zeros()
+    }
 }
 
 pub struct InnerPrimitiveBuffer<T: Hittable> {
@@ -181,37 +188,88 @@ impl PrimitiveBuffer {
         }
     }
 
-    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let mut closest_so_far = t_max;
-        let hit = self.triangles.hit(ray, t_min, closest_so_far);
-        match hit.as_ref() {
-            Some(rec) => {
-                closest_so_far = rec.t();
-            }
-            None => {}
-        }
-        let hit = self.spheres.hit(ray, t_min, closest_so_far).or(hit);
-        match hit.as_ref() {
-            Some(rec) => {
-                closest_so_far = rec.t();
-            }
-            None => {}
-        }
-        let hit = self.quads.hit(ray, t_min, closest_so_far).or(hit);
-        match hit.as_ref() {
-            Some(rec) => {
-                closest_so_far = rec.t();
-            }
-            None => {}
-        }
-        let hit = self.instances.hit(ray, t_min, closest_so_far).or(hit);
+    pub fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
+        let hit = self.triangles.hit(ray);
+        let hit = self.spheres.hit(ray).or(hit);
+        let hit = self.quads.hit(ray).or(hit);
+        let hit = self.instances.hit(ray).or(hit);
         hit
     }
 
     pub fn bbox(&self) -> BBox {
         self.bbox
     }
+
+    pub fn len(&self) -> usize {
+        self.triangles.len() + self.spheres.len() + self.quads.len() + self.instances.len()
+    }
 }
+
+pub struct LightBuffer {
+    pub objects: PrimitiveBuffer,
+}
+
+impl LightBuffer {
+    pub fn new() -> Self {
+        Self {
+            objects: PrimitiveBuffer::new(),
+        }
+    }
+
+    pub fn add_triangle(&mut self, triangle: Triangle) {
+        self.objects.add_triangle(triangle);
+    }
+
+    pub fn add_sphere(&mut self, sphere: Sphere) {
+        self.objects.add_sphere(sphere);
+    }
+
+    pub fn add_quad(&mut self, quad: Quad) {
+        self.objects.add_quad(quad);
+    }
+
+    pub fn add_instance(&mut self, instance: Instance) {
+        self.objects.add_instance(instance);
+    }
+
+    pub fn sample(&self, rng: &mut impl Rng, origin: &Point3<f32>) -> Vector3<f32> {
+        let n = self.objects.len();
+        let i = rng.gen_range(0..n);
+
+        // Sample a primitive
+        if i < self.objects.triangles.len() {
+            self.objects.triangles.buffer[i].sample(rng, origin)
+        } else if i < self.objects.triangles.len() + self.objects.spheres.len() {
+            self.objects.spheres.buffer[i - self.objects.triangles.len()].sample(rng, origin)
+        } else if i < self.objects.triangles.len() + self.objects.spheres.len() + self.objects.quads.len() {
+            self.objects.quads.buffer[i - self.objects.triangles.len() - self.objects.spheres.len()].sample(rng, origin)
+        } else {
+            self.objects.instances.buffer[i - self.objects.triangles.len() - self.objects.spheres.len() - self.objects.quads.len()].sample(rng, origin)
+        }
+    }
+
+    pub fn pdf(&self, ray: &Ray) -> f32 {
+        let mut pdf = 0.0;
+        for tri in &self.objects.triangles.buffer {
+            pdf += tri.pdf(ray);
+        }
+
+        for sphere in &self.objects.spheres.buffer {
+            pdf += sphere.pdf(ray);
+        }
+
+        for quad in &self.objects.quads.buffer {
+            pdf += quad.pdf(ray);
+        }
+
+        for instance in &self.objects.instances.buffer {
+            pdf += instance.pdf(ray);
+        }
+
+        pdf / (self.objects.len() as f32)
+    }
+}
+
 
 #[repr(align(32))]
 pub struct Instance {
@@ -316,16 +374,19 @@ impl Instance {
 }
 
 impl Hittable for Instance {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let new_ray = Ray::new(
+    fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
+        let mut new_ray = Ray::new_bounded(
             self.inverse.transform_point(&ray.origin),
             self.inverse.transform_vector(&ray.direction),
+            ray.t_min,
+            ray.t_max,
         );
-        match self.obj.hit(&new_ray, t_min, t_max) {
+        match self.obj.hit(&mut new_ray) {
             Some(mut rec) => {
                 rec.p = self.transform.transform_point(&rec.p);
                 rec.normal = self.transform.transform_vector(&rec.normal);
 
+                ray.t_max = rec.t;
                 Some(rec)
             }
             None => None,

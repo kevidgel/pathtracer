@@ -7,6 +7,7 @@ use na::{Point3, Vector3};
 use super::HitRecord;
 
 #[repr(align(32))]
+#[derive(Clone)]
 pub struct Sphere {
     center: Point3<f32>,
     radius: f32,
@@ -36,7 +37,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
         // Solve the quadratic equation
         let oc: Vector3<f32> = self.center - ray.origin;
         let a: f32 = ray.direction.norm_squared();
@@ -54,9 +55,9 @@ impl Hittable for Sphere {
 
         // Check whether there is a root in the bounds
         let mut root = (h - sqrt_disc) / a;
-        if root < t_min || t_max < root {
+        if root < ray.t_min || ray.t_max < root {
             root = (h + sqrt_disc) / a;
-            if root < t_min || t_max < root {
+            if root < ray.t_min || ray.t_max < root {
                 return None;
             }
         }
@@ -66,6 +67,7 @@ impl Hittable for Sphere {
         let (u, v) = self.get_uv(&outward_normal);
 
         // Hit
+        ray.t_max = root;
         let rec = HitRecord::new(
             ray,
             ray.at(root),

@@ -1,3 +1,5 @@
+use core::f32;
+
 use super::reflect;
 use super::Material;
 use crate::objects::HitRecord;
@@ -24,12 +26,18 @@ impl Metal {
 }
 
 impl Material for Metal {
+    fn is_emissive(&self) -> bool {
+        false
+    }
+    fn is_specular(&self) -> bool {
+        false
+    }
     fn scatter(
         &self,
         rng: &mut ThreadRng,
         ray_in: &Ray,
         rec: &HitRecord,
-    ) -> Option<(Color, Ray)> {
+    ) -> Option<Ray> {
         let fuzz: Vector3<f32> = if self.fuzz > 0.0 {
             let sampler = SphereSampler::unit();
             self.fuzz * sampler.sample(rng).normalize()
@@ -39,7 +47,11 @@ impl Material for Metal {
 
         let reflected = reflect(&ray_in.direction.normalize(), &rec.normal()) + fuzz;
         let scattered = Ray::new(rec.p(), reflected);
-        let attenuation = self.albedo;
-        Some((attenuation, scattered))
+        
+        Some(scattered)
+    }
+
+    fn bsdf_evaluate(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> Color {
+        self.albedo
     }
 }

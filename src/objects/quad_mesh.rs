@@ -3,6 +3,7 @@ use crate::materials::MaterialRef;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
 use na::{Point3, Vector3};
+use rand::Rng;
 
 use super::{tri_mesh::Triangle, HitRecord, PrimitiveBuffer};
 
@@ -15,6 +16,7 @@ pub struct Quad {
     normal: Vector3<f32>,
     w: Vector3<f32>,
     d: f32,
+    area: f32,
     mat: Option<MaterialRef>,
     bbox: BBox,
 }
@@ -35,6 +37,7 @@ impl Quad {
         let normal = n.normalize();
         let d = normal.dot(&origin.coords);
         let w = n / (n.dot(&n));
+        let area = n.norm();
         Self {
             origin: *origin,
             u: *u,
@@ -42,6 +45,7 @@ impl Quad {
             normal,
             w,
             d,
+            area,
             mat,
             bbox,
         }
@@ -119,14 +123,14 @@ impl Quad {
 }
 
 impl Hittable for Quad {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
         let denom = self.normal.dot(&ray.direction);
         if denom.abs() < 1e-6 {
             return None;
         }
 
         let t = (self.d - self.normal.dot(&ray.origin.coords)) / denom;
-        if t < t_min || t > t_max {
+        if t < ray.t_min || t > ray.t_max {
             return None;
         }
 
@@ -139,6 +143,8 @@ impl Hittable for Quad {
         if !(0.0..=1.0).contains(&alpha) || !(0.0..=1.0).contains(&beta) {
             return None;
         }
+
+        ray.t_max = t;
 
         Some(HitRecord::new(
             ray,
@@ -155,5 +161,20 @@ impl Hittable for Quad {
     }
     fn mat(&self) -> Option<MaterialRef> {
         self.mat.clone()
+    }
+    fn pdf(&self, ray: &Ray) -> f32 {
+        match self.hit(&mut ray.clone()) {
+            Some(rec) => {
+                let distance_squared = rec.t() * rec.t() * ray.direction.norm_squared();
+                let cosine = ray.direction.dot(&rec.normal()).abs() / ray.direction.norm();
+
+                distance_squared / (cosine * self.area)
+            }
+            None => 0.0,
+        }
+    }
+    fn sample(&self, rng: &mut impl Rng, origin: &Point3<f32>) -> Vector3<f32> {
+        let p = self.origin + self.u * rng.gen_range(0.0..1.0) + self.v * rng.gen_range(0.0..1.0);
+        p - origin
     }
 }

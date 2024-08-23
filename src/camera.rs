@@ -1,4 +1,4 @@
-use crate::objects::PrimitiveBuffer;
+use crate::objects::{LightBuffer, PrimitiveBuffer};
 use crate::types::sampler::{Sampler, SquareSampler};
 use crate::types::{
     color::{Color, ColorOps},
@@ -150,7 +150,7 @@ impl Camera {
         self.image_width
     }
 
-    pub fn render(&self, objects: &PrimitiveBuffer, buffer: Arc<Mutex<RgbImage>>) {
+    pub fn render(&self, objects: &PrimitiveBuffer, lights: &LightBuffer, buffer: Arc<Mutex<RgbImage>>) {
         log::info!("Rendering...");
         let now = SystemTime::now();
         // Image generation
@@ -189,11 +189,15 @@ impl Camera {
                         i % (self.image_width as usize),
                         i / (self.image_width as usize),
                     );
-                    let ray = self.get_ray(&mut rng, u as f32, v as f32, s_u as f32, s_v as f32);
+                    let mut ray = self.get_ray(&mut rng, u as f32, v as f32, s_u as f32, s_v as f32);
                     let pixel_color: Color =
-                        self.ray_color(&mut rng, &ray, objects, self.max_depth); //* self.pixel_samples_scale;
+                        self.ray_color(&mut rng, &mut ray, objects, lights, self.max_depth); //* self.pixel_samples_scale;
 
-                    *pixel += pixel_color;
+                    if pixel_color.x.is_nan() || pixel_color.y.is_nan() || pixel_color.z.is_nan() {
+                        *pixel += Color::zeros();
+                    } else {
+                        *pixel += pixel_color;
+                    }
                 });
 
                 let mut buffer = buffer.lock().unwrap();
@@ -250,48 +254,69 @@ impl Camera {
     fn ray_color(
         &self,
         rng: &mut ThreadRng,
-        ray: &Ray,
+        ray: &mut Ray,
         objects: &PrimitiveBuffer,
+        lights: &LightBuffer,
         max_depth: u32,
     ) -> Color {
         const C: f32 = 0.0;
         if max_depth == 0 {
             return Color::zeros();
         }
-        match objects.hit(ray, 0.001, f32::INFINITY) {
+        match objects.hit(ray) {
             Some(rec) => {
-                match rec.material() {
-                    Some(material) => {
-                        let emitted = material.emitted(&ray, &rec, rec.u(), rec.v(), &rec.p());
-                        match material.scatter(rng, ray, &rec) {
-                            Some((attenuation, scattered)) => {
-                                let scattering_pdf = material.scattering_pdf(&ray, &scattered, &rec);
-                                let pdf_value = scattering_pdf;
-                                let throughput = scattering_pdf * attenuation / pdf_value;
-
-                                // Russian Roulette
-                                let weight = 1.0 - throughput.norm().clamp(0.0, 1.0);
-                                if rng.gen_bool(weight as f64) {
-                                    return Color::gray(C);
-                                }
-
-                                let next_hit = &self.ray_color(
-                                    rng,
-                                    &scattered,
-                                    objects,
-                                    max_depth - 1,
-                                );
-                                let radiance = emitted + throughput.component_mul(next_hit);
-
-                                (radiance - (weight * Color::gray(C))) / (1.0 - weight)
-                            }
-                            // Purely Emissive
-                            None => emitted,
-                        }
+                // Get material
+                let mat = rec.material();
+                let material = match mat {
+                    Some(material) => material,
+                    None => {
+                        return Color::zeros();
                     }
-                    // Unknown material
-                    None => Color::zeros(),
+                };
+
+                // Get emission
+                let emitted = material.emitted(&ray, &rec, rec.u(), rec.v(), &rec.p());
+
+                if material.is_emissive() {
+                    return emitted;
                 }
+                
+                // Get next ray
+                const P: f32 = 0.5_f32;
+                let (mut next_ray, scatter) = if rng.gen_bool(P as f64) {
+                    (material.scatter(rng, ray, &rec).unwrap(), true)
+                } else {
+                    (Ray::new(rec.p(), lights.sample(rng, &rec.p())), false)
+                };
+
+                let scatter_pdf = material.scattering_pdf(&ray, &next_ray, &rec);
+                let light_pdf = lights.pdf(&next_ray);
+                let pdf = P * scatter_pdf + (1.0 - P) * light_pdf;
+
+                // BSDF
+                let throughput = material.bsdf_evaluate(&ray, &next_ray, &rec) / pdf;
+
+                // Russian Roulette
+                let weight = if !scatter {
+                    0.0
+                } else {
+                    1.0 - throughput.x.max(throughput.y.max(throughput.z)).clamp(0.0, 1.0) 
+                };
+                if rng.gen_bool(weight as f64) {
+                    return Color::gray(C);
+                }
+
+                // Sample next ray
+                let sample_color = &self.ray_color(
+                    rng,
+                    &mut next_ray,
+                    objects,
+                    lights,
+                    max_depth - 1,
+                );
+                let radiance = emitted + throughput.component_mul(sample_color);
+
+                (radiance - (weight * Color::gray(C))) / (1.0 - weight)
             }
             None => self.background,
         }

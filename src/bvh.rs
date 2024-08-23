@@ -142,9 +142,9 @@ impl BBox {
         extent.xxy().dot(&extent.yzz()).abs() * 2.0
     }
 
-    pub fn intersect(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(f32, f32)> {
-        let mut t_min: f32 = t_min;
-        let mut t_max: f32 = t_max;
+    pub fn intersect(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let mut t_min: f32 = ray.t_min;
+        let mut t_max: f32 = ray.t_max;
 
         // Find intersection of interval for each axis
         for axis in 0..3 {
@@ -580,21 +580,19 @@ impl BVHNode {
     fn biased_traverse<T: Hittable>(
         &self,
         ordered_objects: &Vec<T>,
-        ray: &Ray,
-        ray_t_min: f32,
-        ray_t_max: f32,
+        ray: &mut Ray,
         other: &Self,
         t_min_other: f32,
     ) -> Option<HitRecord> {
         // Bboxes overlap
-        let self_hit = self.traverse(ordered_objects, ray, ray_t_min, ray_t_max);
+        let self_hit = self.traverse(ordered_objects, ray);
         match self_hit {
             Some(self_hit) => {
                 let self_hit_time = self_hit.t();
                 if self_hit_time < t_min_other {
                     Some(self_hit)
                 } else {
-                    match other.traverse(ordered_objects, ray, ray_t_min, ray_t_max) {
+                    match other.traverse(ordered_objects, ray) {
                         Some(other_hit) => {
                             let other_hit_time = other_hit.t();
                             match self_hit_time < other_hit_time {
@@ -606,16 +604,14 @@ impl BVHNode {
                     }
                 }
             }
-            None => other.traverse(ordered_objects, ray, ray_t_min, ray_t_max),
+            None => other.traverse(ordered_objects, ray),
         }
     }
 
     fn traverse<T: Hittable>(
         &self,
         ordered_objects: &Vec<T>,
-        ray: &Ray,
-        ray_t_min: f32,
-        ray_t_max: f32,
+        ray: &mut Ray,
     ) -> Option<HitRecord> {
         match self {
             BVHNode::Interior {
@@ -624,8 +620,8 @@ impl BVHNode {
                 bbox: _,
                 axis: _,
             } => {
-                let left_intersect = left.get_bbox_ref().intersect(ray, ray_t_min, ray_t_max);
-                let right_intersect = right.get_bbox_ref().intersect(ray, ray_t_min, ray_t_max);
+                let left_intersect = left.get_bbox_ref().intersect(ray);
+                let right_intersect = right.get_bbox_ref().intersect(ray);
 
                 match (left_intersect, right_intersect) {
                     (Some((t_min_l, t_max_l)), Some((t_min_r, t_max_r))) => {
@@ -636,16 +632,12 @@ impl BVHNode {
                             (true, false) => left.biased_traverse(
                                 ordered_objects,
                                 ray,
-                                ray_t_min,
-                                ray_t_max,
                                 right,
                                 t_min_r,
                             ),
                             (false, true) => right.biased_traverse(
                                 ordered_objects,
                                 ray,
-                                ray_t_min,
-                                ray_t_max,
                                 left,
                                 t_min_l,
                             ),
@@ -655,8 +647,6 @@ impl BVHNode {
                                     left.biased_traverse(
                                         ordered_objects,
                                         ray,
-                                        ray_t_min,
-                                        ray_t_max,
                                         right,
                                         t_min_r,
                                     )
@@ -664,8 +654,6 @@ impl BVHNode {
                                     right.biased_traverse(
                                         ordered_objects,
                                         ray,
-                                        ray_t_min,
-                                        ray_t_max,
                                         left,
                                         t_min_l,
                                     )
@@ -674,10 +662,10 @@ impl BVHNode {
                         }
                     }
                     (Some((_t_min, _t_max)), None) => {
-                        left.traverse(ordered_objects, ray, ray_t_min, ray_t_max)
+                        left.traverse(ordered_objects, ray)
                     }
                     (None, Some((_t_min, _t_max))) => {
-                        right.traverse(ordered_objects, ray, ray_t_min, ray_t_max)
+                        right.traverse(ordered_objects, ray)
                     }
                     (None, None) => None,
                 }
@@ -688,11 +676,9 @@ impl BVHNode {
                 bbox: _,
             } => {
                 let mut closest_hit: Option<HitRecord> = None;
-                let mut closest_so_far = ray_t_max;
 
                 for i in *start..(*start + *size) {
-                    if let Some(hit) = ordered_objects[i].hit(ray, ray_t_min, closest_so_far) {
-                        closest_so_far = hit.t();
+                    if let Some(hit) = ordered_objects[i].hit(ray) {
                         closest_hit = Some(hit);
                     }
                 }
@@ -747,16 +733,16 @@ pub struct BVH<T: Hittable> {
 }
 
 impl<T: Hittable> BVH<T> {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
         if self
             .root
             .get_bbox_ref()
-            .intersect(ray, t_min, t_max)
+            .intersect(ray)
             .is_none()
         {
             return None;
         }
-        self.root.traverse(&self.ordered_objects, ray, t_min, t_max)
+        self.root.traverse(&self.ordered_objects, ray)
     }
 }
 
@@ -766,15 +752,13 @@ impl<T: Hittable> BVH<T> {
 // }
 
 impl<T: Hittable> InnerPrimitiveBuffer<T> {
-    pub fn traverse(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    pub fn traverse(&self, ray: &mut Ray) -> Option<HitRecord> {
         let nodes = match self.bvh.as_ref() {
             Some(nodes) => nodes,
             None => {
                 let mut closest_hit = None;
-                let mut closest_so_far = t_max;
                 for primitive in self.buffer.iter() {
-                    if let Some(hit) = primitive.hit(ray, t_min, closest_so_far) {
-                        closest_so_far = hit.t();
+                    if let Some(hit) = primitive.hit(ray) {
                         closest_hit = Some(hit);
                     }
                 }
@@ -782,7 +766,6 @@ impl<T: Hittable> InnerPrimitiveBuffer<T> {
             }
         };
         let mut closest_hit: Option<HitRecord> = None;
-        let mut closest_so_far = t_max;
         let mut current_node_index = 0;
         let mut to_visit_offset = 0;
         let mut nodes_to_visit: [usize; 64] = [0; 64];
@@ -795,7 +778,7 @@ impl<T: Hittable> InnerPrimitiveBuffer<T> {
 
         loop {
             let node = &nodes[current_node_index];
-            match node.get_bbox().intersect(ray, t_min, closest_so_far) {
+            match node.get_bbox().intersect(ray) {
                 Some((_, _)) => match node {
                     FlatBVHNode::Interior {
                         right_child_offset,
@@ -819,9 +802,8 @@ impl<T: Hittable> InnerPrimitiveBuffer<T> {
                     } => {
                         for i in *offset..(*offset + (*size as usize)) {
                             if let Some(hit) =
-                                self.buffer[i as usize].hit(ray, t_min, closest_so_far)
+                                self.buffer[i as usize].hit(ray)
                             {
-                                closest_so_far = hit.t();
                                 closest_hit = Some(hit);
                             }
                         }
@@ -847,8 +829,8 @@ impl<T: Hittable> InnerPrimitiveBuffer<T> {
 }
 
 impl<T: Hittable> Hittable for InnerPrimitiveBuffer<T> {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        self.traverse(ray, t_min, t_max)
+    fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
+        self.traverse(ray)
     }
     fn mat(&self) -> Option<MaterialRef> {
         None

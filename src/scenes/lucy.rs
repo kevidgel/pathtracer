@@ -1,7 +1,7 @@
 use na::Point3;
 
 use super::Scene;
-use crate::objects::PrimitiveBuffer;
+use crate::objects::{LightBuffer, PrimitiveBuffer};
 use crate::types::color::{Color, ColorOps};
 use crate::{
     camera::Camera,
@@ -11,9 +11,10 @@ use crate::{
 
 pub struct Lucy;
 
-impl Scene<'_> for Lucy {
-    fn build_scene() -> PrimitiveBuffer {
+impl Scene for Lucy {
+    fn build_scene() -> (PrimitiveBuffer, LightBuffer) {
         let mut objects = PrimitiveBuffer::new();
+        let mut lights = LightBuffer::new();
         let mut materials = MaterialRegistry::new();
         let meshes: Vec<TriMesh> = TriMesh::load_as_vec("teapot_smooth.obj");
 
@@ -29,6 +30,7 @@ impl Scene<'_> for Lucy {
 
         let light = Sphere::new(Point3::new(0.7, 2.3, 1.0), 0.9, materials.get("emit"));
 
+        lights.add_sphere(light.clone());
         objects.add_sphere(light);
         objects.add_sphere(ground);
 
@@ -38,7 +40,7 @@ impl Scene<'_> for Lucy {
             objects.add_triangle(tri);
         }
 
-        objects
+        (objects, lights)
     }
 
     fn build_camera() -> Camera {
