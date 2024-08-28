@@ -608,11 +608,7 @@ impl BVHNode {
         }
     }
 
-    fn traverse<T: Hittable>(
-        &self,
-        ordered_objects: &Vec<T>,
-        ray: &mut Ray,
-    ) -> Option<HitRecord> {
+    fn traverse<T: Hittable>(&self, ordered_objects: &Vec<T>, ray: &mut Ray) -> Option<HitRecord> {
         match self {
             BVHNode::Interior {
                 left,
@@ -629,44 +625,24 @@ impl BVHNode {
                             (true, true) => {
                                 panic!("This should not happen");
                             }
-                            (true, false) => left.biased_traverse(
-                                ordered_objects,
-                                ray,
-                                right,
-                                t_min_r,
-                            ),
-                            (false, true) => right.biased_traverse(
-                                ordered_objects,
-                                ray,
-                                left,
-                                t_min_l,
-                            ),
+                            (true, false) => {
+                                left.biased_traverse(ordered_objects, ray, right, t_min_r)
+                            }
+                            (false, true) => {
+                                right.biased_traverse(ordered_objects, ray, left, t_min_l)
+                            }
                             (false, false) => {
                                 // Bboxes overlap
                                 if t_min_l < t_min_r {
-                                    left.biased_traverse(
-                                        ordered_objects,
-                                        ray,
-                                        right,
-                                        t_min_r,
-                                    )
+                                    left.biased_traverse(ordered_objects, ray, right, t_min_r)
                                 } else {
-                                    right.biased_traverse(
-                                        ordered_objects,
-                                        ray,
-                                        left,
-                                        t_min_l,
-                                    )
+                                    right.biased_traverse(ordered_objects, ray, left, t_min_l)
                                 }
                             }
                         }
                     }
-                    (Some((_t_min, _t_max)), None) => {
-                        left.traverse(ordered_objects, ray)
-                    }
-                    (None, Some((_t_min, _t_max))) => {
-                        right.traverse(ordered_objects, ray)
-                    }
+                    (Some((_t_min, _t_max)), None) => left.traverse(ordered_objects, ray),
+                    (None, Some((_t_min, _t_max))) => right.traverse(ordered_objects, ray),
                     (None, None) => None,
                 }
             }
@@ -734,12 +710,7 @@ pub struct BVH<T: Hittable> {
 
 impl<T: Hittable> BVH<T> {
     fn hit(&self, ray: &mut Ray) -> Option<HitRecord> {
-        if self
-            .root
-            .get_bbox_ref()
-            .intersect(ray)
-            .is_none()
-        {
+        if self.root.get_bbox_ref().intersect(ray).is_none() {
             return None;
         }
         self.root.traverse(&self.ordered_objects, ray)
@@ -801,9 +772,7 @@ impl<T: Hittable> InnerPrimitiveBuffer<T> {
                         bbox: _,
                     } => {
                         for i in *offset..(*offset + (*size as usize)) {
-                            if let Some(hit) =
-                                self.buffer[i as usize].hit(ray)
-                            {
+                            if let Some(hit) = self.buffer[i as usize].hit(ray) {
                                 closest_hit = Some(hit);
                             }
                         }

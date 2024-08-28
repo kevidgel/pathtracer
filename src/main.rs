@@ -14,7 +14,6 @@ use eframe::egui;
 use image::RgbImage;
 use std::sync::mpsc;
 
-
 use scenes::{cornell, lucy, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -33,26 +32,28 @@ impl eframe::App for PathtracerApp {
         if self.rx.try_recv().is_ok() {
             log::info!("Done");
         }
-        egui::CentralPanel::default().frame(egui::containers::Frame::none()).show(ctx, |ui| {
-            let buffer = self.image_buffer.lock().unwrap();
+        egui::CentralPanel::default()
+            .frame(egui::containers::Frame::none())
+            .show(ctx, |ui| {
+                let buffer = self.image_buffer.lock().unwrap();
 
-            if self.texture.is_none() {
-                self.texture = Some(ui.ctx().load_texture(
-                    "raytraced_image",
-                    egui::ColorImage::from_rgb([self.width, self.height], &buffer),
-                    egui::TextureOptions::default(),
-                ));
-            } else {
-                self.texture.as_mut().unwrap().set(
-                    egui::ColorImage::from_rgb([self.width, self.height], &buffer),
-                    egui::TextureOptions::default(),
-                );
-            }
+                if self.texture.is_none() {
+                    self.texture = Some(ui.ctx().load_texture(
+                        "raytraced_image",
+                        egui::ColorImage::from_rgb([self.width, self.height], &buffer),
+                        egui::TextureOptions::default(),
+                    ));
+                } else {
+                    self.texture.as_mut().unwrap().set(
+                        egui::ColorImage::from_rgb([self.width, self.height], &buffer),
+                        egui::TextureOptions::default(),
+                    );
+                }
 
-            if let Some(texture) = &self.texture {
-                ui.image(texture);
-            }
-        });
+                if let Some(texture) = &self.texture {
+                    ui.image(texture);
+                }
+            });
 
         ctx.request_repaint();
     }
@@ -65,9 +66,9 @@ fn main() -> eframe::Result {
 
     log::info!("Building scene...");
     let now = SystemTime::now();
-    let camera = cornell::Cornell::build_camera();
+    let camera = lucy::Lucy::build_camera();
     let (width, height) = (camera.get_width() as usize, camera.get_height() as usize);
-    let (mut objects, mut lights) = cornell::Cornell::build_scene();
+    let (mut objects, mut lights) = lucy::Lucy::build_scene();
     objects.build_bvh();
 
     let build_elapsed = match now.elapsed() {
@@ -78,10 +79,8 @@ fn main() -> eframe::Result {
         }
     };
 
-    let image_buffer: Arc<Mutex<RgbImage>> = Arc::new(Mutex::new(RgbImage::new(
-        width as u32,
-        height as u32,
-    )));
+    let image_buffer: Arc<Mutex<RgbImage>> =
+        Arc::new(Mutex::new(RgbImage::new(width as u32, height as u32)));
 
     log::info!("Build time: {:?}", build_elapsed);
 

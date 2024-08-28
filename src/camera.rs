@@ -150,7 +150,12 @@ impl Camera {
         self.image_width
     }
 
-    pub fn render(&self, objects: &PrimitiveBuffer, lights: &LightBuffer, buffer: Arc<Mutex<RgbImage>>) {
+    pub fn render(
+        &self,
+        objects: &PrimitiveBuffer,
+        lights: &LightBuffer,
+        buffer: Arc<Mutex<RgbImage>>,
+    ) {
         log::info!("Rendering...");
         let now = SystemTime::now();
         // Image generation
@@ -189,7 +194,8 @@ impl Camera {
                         i % (self.image_width as usize),
                         i / (self.image_width as usize),
                     );
-                    let mut ray = self.get_ray(&mut rng, u as f32, v as f32, s_u as f32, s_v as f32);
+                    let mut ray =
+                        self.get_ray(&mut rng, u as f32, v as f32, s_u as f32, s_v as f32);
                     let pixel_color: Color =
                         self.ray_color(&mut rng, &mut ray, objects, lights, self.max_depth); //* self.pixel_samples_scale;
 
@@ -280,7 +286,14 @@ impl Camera {
                 if material.is_emissive() {
                     return emitted;
                 }
-                
+
+                if material.is_specular() {
+                    let mut sample_ray = material.scatter(rng, ray, &rec).unwrap();
+                    let sample_color =
+                        &self.ray_color(rng, &mut sample_ray, objects, lights, max_depth - 1);
+                    return emitted + sample_color;
+                }
+
                 // Get next ray
                 const P: f32 = 0.5_f32;
                 let (mut next_ray, scatter) = if rng.gen_bool(P as f64) {
@@ -300,20 +313,18 @@ impl Camera {
                 let weight = if !scatter {
                     0.0
                 } else {
-                    1.0 - throughput.x.max(throughput.y.max(throughput.z)).clamp(0.0, 1.0) 
+                    1.0 - throughput
+                        .x
+                        .max(throughput.y.max(throughput.z))
+                        .clamp(0.0, 1.0)
                 };
                 if rng.gen_bool(weight as f64) {
                     return Color::gray(C);
                 }
 
                 // Sample next ray
-                let sample_color = &self.ray_color(
-                    rng,
-                    &mut next_ray,
-                    objects,
-                    lights,
-                    max_depth - 1,
-                );
+                let sample_color =
+                    &self.ray_color(rng, &mut next_ray, objects, lights, max_depth - 1);
                 let radiance = emitted + throughput.component_mul(sample_color);
 
                 (radiance - (weight * Color::gray(C))) / (1.0 - weight)

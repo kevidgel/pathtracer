@@ -9,8 +9,18 @@ pub struct Ray {
 }
 
 impl Ray {
-    pub fn new_bounded(origin: Point3<f32>, direction: Vector3<f32>, t_min: f32, t_max: f32) -> Self {
-        Self { origin, direction, t_min, t_max }
+    pub fn new_bounded(
+        origin: Point3<f32>,
+        direction: Vector3<f32>,
+        t_min: f32,
+        t_max: f32,
+    ) -> Self {
+        Self {
+            origin,
+            direction,
+            t_min,
+            t_max,
+        }
     }
 
     pub fn new(origin: Point3<f32>, direction: Vector3<f32>) -> Self {

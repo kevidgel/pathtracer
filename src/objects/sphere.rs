@@ -1,7 +1,7 @@
-use crate::bvh::BBox;
 use crate::materials::MaterialRef;
 use crate::objects::Hittable;
 use crate::types::ray::Ray;
+use crate::{bvh::BBox, types::onb::OrthonormalBasis};
 use na::{Point3, Vector3};
 
 use super::HitRecord;
@@ -33,6 +33,23 @@ impl Sphere {
             phi / (2.0 * std::f32::consts::PI),
             theta / std::f32::consts::PI,
         )
+    }
+
+    fn random_to_sphere(
+        &self,
+        rng: &mut impl rand::Rng,
+        radius: f32,
+        distance_squared: f32,
+    ) -> Vector3<f32> {
+        let r1 = rng.gen_range(0.0..1.0);
+        let r2 = rng.gen_range(0.0..1.0);
+        let z = 1.0 + r2 * ((1.0 - self.radius * self.radius / distance_squared).sqrt() - 1.0);
+
+        let phi = 2.0 * std::f32::consts::PI * r1;
+        let x = phi.cos() * (1.0 - z * z).sqrt();
+        let y = phi.sin() * (1.0 - z * z).sqrt();
+
+        Vector3::new(x, y, z) * radius
     }
 }
 
@@ -87,5 +104,26 @@ impl Hittable for Sphere {
 
     fn bbox(&self) -> BBox {
         self.bbox
+    }
+
+    fn pdf(&self, ray: &Ray) -> f32 {
+        match self.hit(&mut ray.clone()) {
+            Some(_rec) => {
+                let cos_theta_max = (1.0
+                    - self.radius * self.radius / (self.center - ray.origin).norm_squared())
+                .sqrt();
+                let solid_angle = 2.0 * std::f32::consts::PI * (1.0 - cos_theta_max);
+                1.0 / solid_angle
+            }
+            None => 0.0,
+        }
+    }
+
+    fn sample(&self, rng: &mut impl rand::Rng, origin: &Point3<f32>) -> Vector3<f32> {
+        let direction = self.center - origin;
+        let distance_squared = direction.norm_squared();
+        let uvw = OrthonormalBasis::new(&direction);
+
+        uvw.to_world(&self.random_to_sphere(rng, self.radius, distance_squared))
     }
 }

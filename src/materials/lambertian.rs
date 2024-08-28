@@ -3,9 +3,9 @@ use crate::objects::HitRecord;
 use crate::textures::Solid;
 use crate::textures::TextureRef;
 use crate::types::color::ColorOps;
-use crate::types::pdf::{PDF, CosineWeightedHemispherePDF, SpherePDF};
-use crate::types::{color::Color, ray::Ray};
 use crate::types::onb::OrthonormalBasis;
+use crate::types::pdf::{CosineWeightedHemispherePDF, SpherePDF, PDF};
+use crate::types::{color::Color, ray::Ray};
 use rand::rngs::ThreadRng;
 use std::sync::Arc;
 
@@ -36,12 +36,7 @@ impl Material for Lambertian {
         false
     }
 
-    fn scatter(
-        &self,
-        rng: &mut ThreadRng,
-        _ray_in: &Ray,
-        rec: &HitRecord,
-    ) -> Option<Ray> {
+    fn scatter(&self, rng: &mut ThreadRng, _ray_in: &Ray, rec: &HitRecord) -> Option<Ray> {
         let cosine_pdf = CosineWeightedHemispherePDF::new(&rec.normal());
 
         // Scatter

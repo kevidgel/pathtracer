@@ -26,7 +26,7 @@ impl OrthonormalBasis {
     }
 
     pub fn v(&self) -> Vector3<f32> {
-       self.v
+        self.v
     }
 
     pub fn w(&self) -> Vector3<f32> {

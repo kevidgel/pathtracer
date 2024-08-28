@@ -7,9 +7,9 @@ use crate::materials::MaterialRef;
 use crate::types::ray::Ray;
 use na::{Matrix4, Point3, Vector3};
 use quad_mesh::Quad;
+use rand::Rng;
 use sphere::Sphere;
 use tri_mesh::Triangle;
-use rand::Rng;
 
 pub struct HitRecord {
     // Normal stuff
@@ -241,10 +241,18 @@ impl LightBuffer {
             self.objects.triangles.buffer[i].sample(rng, origin)
         } else if i < self.objects.triangles.len() + self.objects.spheres.len() {
             self.objects.spheres.buffer[i - self.objects.triangles.len()].sample(rng, origin)
-        } else if i < self.objects.triangles.len() + self.objects.spheres.len() + self.objects.quads.len() {
-            self.objects.quads.buffer[i - self.objects.triangles.len() - self.objects.spheres.len()].sample(rng, origin)
+        } else if i < self.objects.triangles.len()
+            + self.objects.spheres.len()
+            + self.objects.quads.len()
+        {
+            self.objects.quads.buffer[i - self.objects.triangles.len() - self.objects.spheres.len()]
+                .sample(rng, origin)
         } else {
-            self.objects.instances.buffer[i - self.objects.triangles.len() - self.objects.spheres.len() - self.objects.quads.len()].sample(rng, origin)
+            self.objects.instances.buffer[i
+                - self.objects.triangles.len()
+                - self.objects.spheres.len()
+                - self.objects.quads.len()]
+            .sample(rng, origin)
         }
     }
 
@@ -269,7 +277,6 @@ impl LightBuffer {
         pdf / (self.objects.len() as f32)
     }
 }
-
 
 #[repr(align(32))]
 pub struct Instance {

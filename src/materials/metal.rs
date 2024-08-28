@@ -32,12 +32,7 @@ impl Material for Metal {
     fn is_specular(&self) -> bool {
         false
     }
-    fn scatter(
-        &self,
-        rng: &mut ThreadRng,
-        ray_in: &Ray,
-        rec: &HitRecord,
-    ) -> Option<Ray> {
+    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, rec: &HitRecord) -> Option<Ray> {
         let fuzz: Vector3<f32> = if self.fuzz > 0.0 {
             let sampler = SphereSampler::unit();
             self.fuzz * sampler.sample(rng).normalize()
@@ -47,11 +42,15 @@ impl Material for Metal {
 
         let reflected = reflect(&ray_in.direction.normalize(), &rec.normal()) + fuzz;
         let scattered = Ray::new(rec.p(), reflected);
-        
+
         Some(scattered)
     }
 
     fn bsdf_evaluate(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> Color {
         self.albedo
+    }
+
+    fn scattering_pdf(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> f32 {
+        1.0
     }
 }

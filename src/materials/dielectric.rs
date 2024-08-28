@@ -30,12 +30,7 @@ impl Material for Dielectric {
         true
     }
 
-    fn scatter(
-        &self,
-        rng: &mut ThreadRng,
-        ray_in: &Ray,
-        rec: &HitRecord,
-    ) -> Option<Ray> {
+    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, rec: &HitRecord) -> Option<Ray> {
         let ri: f32 = if rec.front_face() {
             1.0 / self.ref_idx
         } else {

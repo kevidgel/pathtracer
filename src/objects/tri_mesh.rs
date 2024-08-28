@@ -271,7 +271,7 @@ impl TriMesh {
     }
 
     pub fn load_as_vec(path: &str) -> Vec<Self> {
-        log::debug!("Loading mesh: {}...", path);
+        log::info!("Loading mesh: {}...", path);
         let (models, materials) = match tobj::load_obj(path, &tobj::LoadOptions::default()) {
             Ok(res) => res,
             Err(e) => {
@@ -291,7 +291,7 @@ impl TriMesh {
             }
         };
 
-        log::debug!(
+        log::info!(
             "Found {} models and {} materials",
             models.len(),
             materials.len()
@@ -300,13 +300,13 @@ impl TriMesh {
         let mut meshes: Vec<Self> = vec![];
         for (i, m) in models.iter().enumerate() {
             let mesh_obj = &m.mesh;
-            log::debug!(
+            log::info!(
                 "Model {} has {} vertices and {} triangles",
                 i,
                 mesh_obj.positions.len() / 3,
                 mesh_obj.indices.len() / 3
             );
-            log::debug!(
+            log::info!(
                 "Model {} has {} normals and {} uvs",
                 i,
                 mesh_obj.normals.len() / 3,
@@ -390,6 +390,8 @@ impl TriMesh {
 
     pub fn to_triangles_with_mat(&self, material: MaterialRef) -> Vec<Triangle> {
         let range = self.positions.1.len();
+
+        log::info!("Range: {}", range);
 
         (0..range)
             .step_by(3)

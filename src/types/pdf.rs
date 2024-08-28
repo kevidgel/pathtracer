@@ -3,7 +3,6 @@ use rand::Rng;
 
 use super::{color::ColorOps, onb::OrthonormalBasis};
 
-
 pub trait PDF {
     fn value(&self, direction: &Vector3<f32>) -> f32;
     fn generate(&self, rng: &mut impl Rng) -> Vector3<f32>;
@@ -25,7 +24,7 @@ impl PDF for SpherePDF {
     fn generate(&self, rng: &mut impl Rng) -> Vector3<f32> {
         let (u, v) = (rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0));
         let norm_squared: f32 = u * u + v * v;
-        
+
         if norm_squared <= 1.0 {
             let x = 2.0 * u * (1.0 - norm_squared).sqrt();
             let y = 2.0 * v * (1.0 - norm_squared).sqrt();
@@ -68,8 +67,4 @@ impl PDF for CosineWeightedHemispherePDF {
 
         out
     }
-}
-
-pub struct HittablePDF {
-    
 }

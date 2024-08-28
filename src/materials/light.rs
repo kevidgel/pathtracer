@@ -39,12 +39,7 @@ impl Material for Diffuse {
     fn is_specular(&self) -> bool {
         true
     }
-    fn scatter(
-        &self,
-        _rng: &mut ThreadRng,
-        _ray_in: &Ray,
-        _rec: &HitRecord,
-    ) -> Option<Ray> {
+    fn scatter(&self, _rng: &mut ThreadRng, _ray_in: &Ray, _rec: &HitRecord) -> Option<Ray> {
         None
     }
 
