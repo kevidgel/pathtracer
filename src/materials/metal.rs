@@ -1,5 +1,3 @@
-use core::f32;
-
 use super::reflect;
 use super::Material;
 use crate::objects::HitRecord;
@@ -30,7 +28,7 @@ impl Material for Metal {
         false
     }
     fn is_specular(&self) -> bool {
-        false
+        true
     }
     fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, rec: &HitRecord) -> Option<Ray> {
         let fuzz: Vector3<f32> = if self.fuzz > 0.0 {
@@ -51,6 +49,6 @@ impl Material for Metal {
     }
 
     fn scattering_pdf(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> f32 {
-        1.0
+        4.0 * std::f32::consts::PI
     }
 }

@@ -14,7 +14,7 @@ use eframe::egui;
 use image::RgbImage;
 use std::sync::mpsc;
 
-use scenes::{cornell, lucy, Scene};
+use scenes::{cornell::Cornell, lucy::Lucy, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -66,9 +66,9 @@ fn main() -> eframe::Result {
 
     log::info!("Building scene...");
     let now = SystemTime::now();
-    let camera = lucy::Lucy::build_camera();
+    let camera = Cornell::build_camera();
     let (width, height) = (camera.get_width() as usize, camera.get_height() as usize);
-    let (mut objects, mut lights) = lucy::Lucy::build_scene();
+    let (mut objects, lights) = Cornell::build_scene();
     objects.build_bvh();
 
     let build_elapsed = match now.elapsed() {
@@ -87,7 +87,7 @@ fn main() -> eframe::Result {
     let image_buffer_to_render = image_buffer.clone();
 
     let (tx, rx) = mpsc::channel();
-    let render_handle = thread::spawn(move || {
+    let _render_handle = thread::spawn(move || {
         let to_save = image_buffer_to_render.clone();
         camera.render(&objects, &lights, image_buffer_to_render);
         to_save.lock().unwrap().save("strat.png").unwrap();

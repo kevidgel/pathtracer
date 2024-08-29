@@ -295,16 +295,18 @@ impl Camera {
                 }
 
                 // Get next ray
-                const P: f32 = 0.5_f32;
-                let (mut next_ray, scatter) = if rng.gen_bool(P as f64) {
+                const BSDF_SAMPLE_PROBABILITY: f32 = 0.5_f32; // Probability of choosing BSDF sample
+                let (mut next_ray, scatter) = if rng.gen_bool(BSDF_SAMPLE_PROBABILITY as f64) {
+                    // BSDF strategy
                     (material.scatter(rng, ray, &rec).unwrap(), true)
                 } else {
+                    // Area lights strategy
                     (Ray::new(rec.p(), lights.sample(rng, &rec.p())), false)
                 };
 
                 let scatter_pdf = material.scattering_pdf(&ray, &next_ray, &rec);
                 let light_pdf = lights.pdf(&next_ray);
-                let pdf = P * scatter_pdf + (1.0 - P) * light_pdf;
+                let pdf = BSDF_SAMPLE_PROBABILITY * scatter_pdf + (1.0 - BSDF_SAMPLE_PROBABILITY) * light_pdf;
 
                 // BSDF
                 let throughput = material.bsdf_evaluate(&ray, &next_ray, &rec) / pdf;

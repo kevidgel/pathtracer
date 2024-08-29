@@ -4,7 +4,7 @@
 Toy project to learn rust
 
 ![cool render](day3.png)
-Current progress (1920x1080, 512 spp, 448 sec, ~1M triangles and a sphere :) )
+Current progress (A cornell box, 600x600, 10240 spp, 1061s)
 
 To render the Cornell box scene:
 

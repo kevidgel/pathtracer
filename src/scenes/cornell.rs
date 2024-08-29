@@ -35,7 +35,7 @@ impl Scene for Cornell {
         let mut materials = MaterialRegistry::new();
 
         materials.create_material("red", Lambertian::new(Color::new(0.65, 0.05, 0.05)));
-        materials.create_material("mirror", Metal::new(Color::new(0.8, 0.85, 0.88), 0.0));
+        materials.create_material("mirror", Metal::new(Color::new(0.8, 0.85, 0.88), 0.050));
         materials.create_material("white", Lambertian::new(Color::gray(0.73)));
         materials.create_material("green", Lambertian::new(Color::new(0.12, 0.45, 0.15)));
         materials.create_material("light", Diffuse::new(Color::gray(15.0)));
@@ -122,7 +122,6 @@ impl Scene for Cornell {
         sph.add_sphere(sphere1);
 
         let mut sph = Instance::from_obj(sph);
-        sph.scale_y(1.5);
 
         objects.add_instance(box1);
         objects.add_instance(sph);
