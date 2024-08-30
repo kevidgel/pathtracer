@@ -1,4 +1,5 @@
 use super::Material;
+use na::Vector3;
 use crate::objects::HitRecord;
 use crate::textures::Solid;
 use crate::textures::TextureRef;
@@ -7,6 +8,7 @@ use crate::types::onb::OrthonormalBasis;
 use crate::types::pdf::{CosineWeightedHemispherePDF, SpherePDF, PDF};
 use crate::types::{color::Color, ray::Ray};
 use rand::rngs::ThreadRng;
+use rand::Rng;
 use std::sync::Arc;
 
 pub struct Lambertian {
@@ -36,22 +38,23 @@ impl Material for Lambertian {
         false
     }
 
-    fn scatter(&self, rng: &mut ThreadRng, _ray_in: &Ray, rec: &HitRecord) -> Option<Ray> {
-        let cosine_pdf = CosineWeightedHemispherePDF::new(&rec.normal());
+    fn scatter(&self, rng: &mut ThreadRng, _w_out: &Vector3<f32>, _rec: &HitRecord) -> Vector3<f32> {
+        let r1: f32 = rng.gen_range(0.0..1.0);
+        let r2: f32 = rng.gen_range(0.0..1.0);
 
-        // Scatter
-        let scatter_direction = &cosine_pdf.generate(rng);
-        let scattered = Ray::new(rec.p(), scatter_direction.normalize());
+        let phi = 2.0 * std::f32::consts::PI * r1;
+        let x = phi.cos() * r2.sqrt();
+        let z = phi.sin() * r2.sqrt();
+        let y = (1.0 - r2).sqrt();
 
-        Some(scattered)
+        Vector3::new(x, y, z)
     }
 
-    fn bsdf_evaluate(&self, ray_in: &Ray, ray_out: &Ray, rec: &HitRecord) -> Color {
-        self.texture.value(rec.u(), rec.v(), &rec.p()) * self.scattering_pdf(ray_in, ray_out, rec)
+    fn bsdf_evaluate(&self, _w_out: &Vector3<f32>, _w_in: &Vector3<f32>, rec: &HitRecord) -> Color {
+        self.texture.value(rec.u(), rec.v(), &rec.p()) / std::f32::consts::PI 
     }
 
-    fn scattering_pdf(&self, _ray_in: &Ray, ray_out: &Ray, rec: &HitRecord) -> f32 {
-        let cosine_pdf = CosineWeightedHemispherePDF::new(&rec.normal());
-        cosine_pdf.value(&ray_out.direction)
+    fn scattering_pdf(&self, _w_out: &Vector3<f32>, w_in: &Vector3<f32>, _rec: &HitRecord) -> f32 {
+        &w_in.normalize().y / std::f32::consts::PI    
     }
 }

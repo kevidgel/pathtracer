@@ -20,17 +20,15 @@ Run:
 Scene configurations are located under `scenes`
 
 TODO: 
+- env maps
+- sampling for triangles
+- importance sampling
 - Support loading/writing materials, objects, etc from config files
 - instance contents currently aren't bvh'ed.
-- lol i just realized vtables r probably cache thrashing
 
 TODO LATER: 
 - gui
 - make faster
-    - tiling
-    - for larger meshes consider doing lbvh
-- proper brdf
-- variance reduction
 - better pathtracing methods
     - bidirectional
     - ma la tang

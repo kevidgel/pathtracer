@@ -1,11 +1,8 @@
-use super::reflect;
+use super::reflect_y;
+use crate::types::color::Color;
 use super::Material;
 use crate::objects::HitRecord;
-use crate::types::{
-    color::Color,
-    ray::Ray,
-    sampler::{Sampler, SphereSampler},
-};
+use crate::types::pdf::{SpherePDF, PDF};
 use na::Vector3;
 use rand::rngs::ThreadRng;
 
@@ -27,28 +24,25 @@ impl Material for Metal {
     fn is_emissive(&self) -> bool {
         false
     }
+
     fn is_specular(&self) -> bool {
         true
     }
-    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, rec: &HitRecord) -> Option<Ray> {
+    
+    fn scatter(&self, rng: &mut ThreadRng, w_out: &Vector3<f32>, _rec: &HitRecord) -> Vector3<f32> {
         let fuzz: Vector3<f32> = if self.fuzz > 0.0 {
-            let sampler = SphereSampler::unit();
-            self.fuzz * sampler.sample(rng).normalize()
+            let sampler = SpherePDF::new();
+            self.fuzz * sampler.generate(rng).normalize()
         } else {
             Vector3::zeros()
         };
 
-        let reflected = reflect(&ray_in.direction.normalize(), &rec.normal()) + fuzz;
-        let scattered = Ray::new(rec.p(), reflected);
+        let reflected = reflect_y(&w_out.normalize()) + fuzz;
 
-        Some(scattered)
+        reflected
     }
 
-    fn bsdf_evaluate(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> Color {
+    fn bsdf_evaluate(&self, _w_out: &Vector3<f32>, _w_in: &Vector3<f32>, _rec: &HitRecord) -> Color {
         self.albedo
-    }
-
-    fn scattering_pdf(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> f32 {
-        4.0 * std::f32::consts::PI
     }
 }

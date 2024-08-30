@@ -1,4 +1,5 @@
 use crate::objects::{LightBuffer, PrimitiveBuffer};
+use crate::types::onb::OrthonormalBasis;
 use crate::types::sampler::{Sampler, SquareSampler};
 use crate::types::{
     color::{Color, ColorOps},
@@ -194,11 +195,13 @@ impl Camera {
                         i % (self.image_width as usize),
                         i / (self.image_width as usize),
                     );
+                    // Get starting ray
                     let mut ray =
                         self.get_ray(&mut rng, u as f32, v as f32, s_u as f32, s_v as f32);
                     let pixel_color: Color =
                         self.ray_color(&mut rng, &mut ray, objects, lights, self.max_depth); //* self.pixel_samples_scale;
 
+                    // Reject NaN colors
                     if pixel_color.x.is_nan() || pixel_color.y.is_nan() || pixel_color.z.is_nan() {
                         *pixel += Color::zeros();
                     } else {
@@ -206,6 +209,7 @@ impl Camera {
                     }
                 });
 
+                // Write to buffer after each sample
                 let mut buffer = buffer.lock().unwrap();
                 buffer.par_enumerate_pixels_mut().for_each(|(u, v, pixel)| {
                     let pixel_color: Color =
@@ -260,7 +264,7 @@ impl Camera {
     fn ray_color(
         &self,
         rng: &mut ThreadRng,
-        ray: &mut Ray,
+        ray_out: &mut Ray,
         objects: &PrimitiveBuffer,
         lights: &LightBuffer,
         max_depth: u32,
@@ -269,7 +273,7 @@ impl Camera {
         if max_depth == 0 {
             return Color::zeros();
         }
-        match objects.hit(ray) {
+        match objects.hit(ray_out) {
             Some(rec) => {
                 // Get material
                 let mat = rec.material();
@@ -281,55 +285,78 @@ impl Camera {
                 };
 
                 // Get emission
-                let emitted = material.emitted(&ray, &rec, rec.u(), rec.v(), &rec.p());
+                let l_emitted = material.emitted(&ray_out, &rec, rec.u(), rec.v(), &rec.p());
 
                 if material.is_emissive() {
-                    return emitted;
+                    return l_emitted;
                 }
 
+                // Transform to surface local space
+                let surface = OrthonormalBasis::new(&rec.normal());
+                // Flip direction
+                let w_out = surface.to_local(&ray_out.direction);
+
+                // If its purely specular, we don't need to do anything special to sample the ray
                 if material.is_specular() {
-                    let mut sample_ray = material.scatter(rng, ray, &rec).unwrap();
-                    let sample_color =
-                        &self.ray_color(rng, &mut sample_ray, objects, lights, max_depth - 1);
-                    return emitted + sample_color;
+                    // Get incoming direction
+                    let w_in = material.scatter(rng, &w_out, &rec);
+
+                    // Get attenuation
+                    let attenuation = material.bsdf_evaluate(&w_out, &w_in, &rec); 
+
+                    // Construct world-space ray
+                    let mut ray_in = Ray::new(rec.p(), surface.to_world(&w_in));
+
+                    // Get reflected radiance
+                    let l_reflected = &self.ray_color(rng, &mut ray_in, objects, lights, max_depth - 1);
+ 
+                    return l_emitted + attenuation.component_mul(&l_reflected);
                 }
 
-                // Get next ray
+                // Sample incoming ray
+                // NOTE: We use mixture sampling here.
                 const BSDF_SAMPLE_PROBABILITY: f32 = 0.5_f32; // Probability of choosing BSDF sample
-                let (mut next_ray, scatter) = if rng.gen_bool(BSDF_SAMPLE_PROBABILITY as f64) {
+                let (w_in, is_bsdf, world_sample) = if rng.gen_bool(BSDF_SAMPLE_PROBABILITY as f64) {
                     // BSDF strategy
-                    (material.scatter(rng, ray, &rec).unwrap(), true)
+                    let w_in = material.scatter(rng, &w_out, &rec);
+                    (w_in, true, surface.to_world(&w_in))
                 } else {
                     // Area lights strategy
-                    (Ray::new(rec.p(), lights.sample(rng, &rec.p())), false)
+                    let light_sample = lights.sample(rng, &rec.p());
+                    (surface.to_local(&light_sample), false, light_sample)
                 };
-
-                let scatter_pdf = material.scattering_pdf(&ray, &next_ray, &rec);
-                let light_pdf = lights.pdf(&next_ray);
+                // Evaluate pdf of both strategies
+                let scatter_pdf = material.scattering_pdf(&w_out, &w_in, &rec);
+                let light_pdf = lights.pdf(&Ray::new(rec.p(), world_sample));
+                
+                // Evaluate terms of l_reflected integrand
                 let pdf = BSDF_SAMPLE_PROBABILITY * scatter_pdf + (1.0 - BSDF_SAMPLE_PROBABILITY) * light_pdf;
-
-                // BSDF
-                let throughput = material.bsdf_evaluate(&ray, &next_ray, &rec) / pdf;
+                let bsdf = material.bsdf_evaluate(&w_out, &w_in, &rec);
+                let cos = w_in.normalize().y.clamp(0.0, 1.0);
 
                 // Russian Roulette
-                let weight = if !scatter {
+                let throughput = (bsdf * cos) / pdf;
+                let weight = if !is_bsdf {
+                    // Much higher confidence in area light sampling
                     0.0
                 } else {
-                    1.0 - throughput
-                        .x
-                        .max(throughput.y.max(throughput.z))
-                        .clamp(0.0, 1.0)
+                    1.0 - throughput.z.max(throughput.y.max(throughput.x)).clamp(0.0, 1.0)
                 };
                 if rng.gen_bool(weight as f64) {
                     return Color::gray(C);
                 }
 
-                // Sample next ray
-                let sample_color =
-                    &self.ray_color(rng, &mut next_ray, objects, lights, max_depth - 1);
-                let radiance = emitted + throughput.component_mul(sample_color);
+                // Construct world-space ray
+                let mut ray_in = Ray::new(rec.p(), world_sample);
 
-                (radiance - (weight * Color::gray(C))) / (1.0 - weight)
+                // Get l_incoming
+                let l_incoming = &self.ray_color(rng, &mut ray_in, objects, lights, max_depth - 1);
+
+                // We have: bsdf * l_incoming * cos / pdf
+                let l_outgoing = l_emitted + throughput.component_mul(l_incoming);
+
+                // Apply Russian Roulette
+                (l_outgoing - (weight * Color::gray(C))) / (1.0 - weight)
             }
             None => self.background,
         }

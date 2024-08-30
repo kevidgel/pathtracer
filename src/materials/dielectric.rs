@@ -1,5 +1,6 @@
+use na::Vector3;
 use super::Material;
-use super::{reflect, refract};
+use super::{reflect_y, refract_y};
 use crate::objects::HitRecord;
 use crate::types::{color::Color, color::ColorOps, ray::Ray};
 use rand::rngs::ThreadRng;
@@ -30,15 +31,15 @@ impl Material for Dielectric {
         true
     }
 
-    fn scatter(&self, rng: &mut ThreadRng, ray_in: &Ray, rec: &HitRecord) -> Option<Ray> {
+    fn scatter(&self, rng: &mut ThreadRng, w_out: &Vector3<f32>, rec: &HitRecord) -> Vector3<f32> {
         let ri: f32 = if rec.front_face() {
             1.0 / self.ref_idx
         } else {
             self.ref_idx
         };
 
-        let unit_direction = ray_in.direction.normalize();
-        let cos_theta = (-unit_direction).dot(&rec.normal()).min(1.0);
+        let unit_direction = w_out.normalize();
+        let cos_theta = (-unit_direction).y.min(1.0);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
 
         let reflect_thresh: f32 = rng.gen_range(0.0..1.0);
@@ -46,15 +47,14 @@ impl Material for Dielectric {
         let cannot_refract = ri * sin_theta > 1.0;
         let direction =
             match cannot_refract || Dielectric::reflectance(cos_theta, ri) > reflect_thresh {
-                true => reflect(&unit_direction, &rec.normal()),
-                false => refract(&unit_direction, &rec.normal(), ri),
+                true => reflect_y(&unit_direction),
+                false => refract_y(&unit_direction, ri),
             };
 
-        let scattered = Ray::new(rec.p(), direction);
-        Some(scattered)
+        direction
     }
 
-    fn bsdf_evaluate(&self, _ray_in: &Ray, _ray_out: &Ray, _rec: &HitRecord) -> Color {
-        Color::gray(1.0_f32)
+    fn bsdf_evaluate(&self, _w_out: &Vector3<f32>, _w_in: &Vector3<f32>, _rec: &HitRecord) -> Color {
+        Color::gray(1.0)
     }
 }

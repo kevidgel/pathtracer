@@ -36,3 +36,9 @@ impl Ray {
         self.direction = direction;
     }
 }
+
+impl Default for Ray {
+    fn default() -> Self {
+        Ray::new(Point3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 0.0))
+    }
+}

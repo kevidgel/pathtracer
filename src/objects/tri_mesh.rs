@@ -249,6 +249,35 @@ impl Hittable for Triangle {
         );
         BBox::new(min, max)
     }
+
+    fn pdf(&self, ray: &Ray) -> f32 {
+        if self.hit(&mut ray.clone()).is_none() {
+            return 0.0
+        };
+
+        // TODO: this is repetitive
+        let u = self.position(1) - self.position(0);
+        let v = self.position(2) - self.position(0);
+
+        2.0_f32 / u.cross(&v).norm()
+    }
+
+    fn sample(&self, rng: &mut impl rand::Rng, origin: &Point3<f32>) -> Vector3<f32> {
+        let s = rng.gen_range(0.0..1.0);
+        let t = rng.gen_range(0.0..1.0);
+        
+        let u = self.position(1) - self.position(0);
+        let v = self.position(2) - self.position(0);
+
+        let offset = if s + t <= 1.0 {
+            s * u + t * v
+        }
+        else {
+            (1.0 - s) * u + (1.0 - t) * v
+        };
+
+        (self.position(0) - origin) + offset
+    }
 }
 
 pub struct TriMesh {

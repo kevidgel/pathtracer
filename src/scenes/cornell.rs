@@ -17,13 +17,13 @@ impl Scene for Cornell {
     fn build_camera() -> Camera {
         Camera::new(
             1.0,
-            600,
+            1024,
             40.0,
             Point3::new(278.0, 278.0, -800.0),
             Point3::new(278.0, 278.0, 0.0),
             1.0,
             0.0,
-            10240,
+            128,
             16,
             Color::gray(0.0),
         )
@@ -35,7 +35,7 @@ impl Scene for Cornell {
         let mut materials = MaterialRegistry::new();
 
         materials.create_material("red", Lambertian::new(Color::new(0.65, 0.05, 0.05)));
-        materials.create_material("mirror", Metal::new(Color::new(0.8, 0.85, 0.88), 0.050));
+        materials.create_material("mirror", Metal::new(Color::new(0.8, 0.85, 0.88), 0.05));
         materials.create_material("white", Lambertian::new(Color::gray(0.73)));
         materials.create_material("green", Lambertian::new(Color::new(0.12, 0.45, 0.15)));
         materials.create_material("light", Diffuse::new(Color::gray(15.0)));

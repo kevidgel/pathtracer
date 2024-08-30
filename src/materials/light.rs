@@ -4,7 +4,6 @@ use crate::textures::{Solid, TextureRef};
 use crate::types::color::{Color, ColorOps};
 use crate::types::ray::Ray;
 use na::Point3;
-use rand::rngs::ThreadRng;
 use std::sync::Arc;
 
 pub struct Diffuse {
@@ -38,9 +37,6 @@ impl Material for Diffuse {
 
     fn is_specular(&self) -> bool {
         true
-    }
-    fn scatter(&self, _rng: &mut ThreadRng, _ray_in: &Ray, _rec: &HitRecord) -> Option<Ray> {
-        None
     }
 
     fn emitted(&self, _ray: &Ray, rec: &HitRecord, u: f32, v: f32, p: &Point3<f32>) -> Color {
