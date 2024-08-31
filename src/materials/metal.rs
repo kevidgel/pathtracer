@@ -37,7 +37,7 @@ impl Material for Metal {
             Vector3::zeros()
         };
 
-        let reflected = reflect_y(&w_out.normalize()) + fuzz;
+        let reflected = reflect_y(&-w_out.normalize()) + fuzz;
 
         reflected
     }

@@ -2,6 +2,7 @@ pub mod dielectric;
 pub mod lambertian;
 pub mod light;
 pub mod metal;
+pub mod disney;
 
 use crate::objects::HitRecord;
 use crate::types::{color::Color, ray::Ray};

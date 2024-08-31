@@ -294,7 +294,7 @@ impl Camera {
                 // Transform to surface local space
                 let surface = OrthonormalBasis::new(&rec.normal());
                 // Flip direction
-                let w_out = surface.to_local(&ray_out.direction);
+                let w_out = -surface.to_local(&ray_out.direction).normalize();
 
                 // If its purely specular, we don't need to do anything special to sample the ray
                 if material.is_specular() {
@@ -325,6 +325,8 @@ impl Camera {
                     let light_sample = lights.sample(rng, &rec.p());
                     (surface.to_local(&light_sample), false, light_sample)
                 };
+
+                let w_in = w_in.normalize();
                 // Evaluate pdf of both strategies
                 let scatter_pdf = material.scattering_pdf(&w_out, &w_in, &rec);
                 let light_pdf = lights.pdf(&Ray::new(rec.p(), world_sample));

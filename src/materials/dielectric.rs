@@ -38,7 +38,7 @@ impl Material for Dielectric {
             self.ref_idx
         };
 
-        let unit_direction = w_out.normalize();
+        let unit_direction = -w_out.normalize();
         let cos_theta = (-unit_direction).y.min(1.0);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
 

@@ -66,9 +66,9 @@ fn main() -> eframe::Result {
 
     log::info!("Building scene...");
     let now = SystemTime::now();
-    let camera = Cornell::build_camera();
+    let camera = Object::build_camera();
     let (width, height) = (camera.get_width() as usize, camera.get_height() as usize);
-    let (mut objects, lights) = Cornell::build_scene();
+    let (mut objects, lights) = Object::build_scene();
     objects.build_bvh();
 
     let build_elapsed = match now.elapsed() {
