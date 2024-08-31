@@ -5,7 +5,7 @@ Toy project to learn rust
 
 ![cool render](day3.png)
 
-Current progress (A cornell box, 600x600, 10240 spp, 1061s)
+Current progress (mitsuba knob, 768x768, 10240 spp, 2653s)
 
 To render the Cornell box scene:
 
