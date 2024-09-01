@@ -2,7 +2,7 @@ use na::{Point3, Vector3};
 
 use super::Scene;
 use crate::materials::lambertian::Lambertian;
-use crate::materials::disney::{DisneyDiffuse, DisneySheen};
+use crate::materials::disney::{DisneyClearcoat, DisneyDiffuse, DisneyMetal, DisneySheen};
 use crate::objects::quad_mesh::Quad;
 use crate::objects::{LightBuffer, PrimitiveBuffer};
 use crate::textures::{Checkered, Solid};
@@ -34,8 +34,10 @@ impl Scene for Object {
         materials.create_material("mat2", Lambertian::new(Color::new(0.3, 0.3, 0.8)));
 
         let sheen = DisneySheen::new(Color::new(0.3, 0.3, 0.8), 1.0, 0.2);
-        let diffuse = DisneyDiffuse::new(Color::new(0.3, 0.3, 0.8), 0.5, 0.0, true);
-        materials.create_material("test", diffuse);
+        let diffuse = DisneyDiffuse::new(Color::new(0.3, 0.3, 0.8), 1.0, 0.5);
+        let clearcoat = DisneyClearcoat::new(1.0, 0.8);
+        let metal = DisneyMetal::new(Color::new(0.3, 0.3, 0.8), 0.5, 0.3);
+        materials.create_material("test", metal);
         // let ground = Sphere::new(
         //     Point3::new(0_f32, -1000.4_f32, 0_f32),
         //     1000_f32,

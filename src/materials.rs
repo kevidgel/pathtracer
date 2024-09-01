@@ -14,6 +14,7 @@ use std::sync::Arc;
 pub type MaterialRef = Arc<dyn Material>;
 
 pub fn reflect(v: &Vector3<f32>, n: &Vector3<f32>) -> Vector3<f32> {
+    let v = -v;
     v - 2.0 * v.dot(n) * n
 }
 

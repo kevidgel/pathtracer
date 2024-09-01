@@ -315,7 +315,7 @@ impl Camera {
 
                 // Sample incoming ray
                 // NOTE: We use mixture sampling here.
-                const BSDF_SAMPLE_PROBABILITY: f32 = 0.5_f32; // Probability of choosing BSDF sample
+                const BSDF_SAMPLE_PROBABILITY: f32 = 0.6_f32; // Probability of choosing BSDF sample
                 let (w_in, is_bsdf, world_sample) = if rng.gen_bool(BSDF_SAMPLE_PROBABILITY as f64) {
                     // BSDF strategy
                     let w_in = material.scatter(rng, &w_out, &rec);
@@ -323,10 +323,9 @@ impl Camera {
                 } else {
                     // Area lights strategy
                     let light_sample = lights.sample(rng, &rec.p());
-                    (surface.to_local(&light_sample), false, light_sample)
+                    (surface.to_local(&light_sample).normalize(), false, light_sample)
                 };
 
-                let w_in = w_in.normalize();
                 // Evaluate pdf of both strategies
                 let scatter_pdf = material.scattering_pdf(&w_out, &w_in, &rec);
                 let light_pdf = lights.pdf(&Ray::new(rec.p(), world_sample));
@@ -344,7 +343,7 @@ impl Camera {
                 } else {
                     1.0 - throughput.z.max(throughput.y.max(throughput.x)).clamp(0.0, 1.0)
                 };
-                if rng.gen_bool(weight as f64) {
+                if weight.is_nan() || rng.gen_bool(weight as f64) {
                     return Color::gray(C);
                 }
 
