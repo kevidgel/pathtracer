@@ -21,4 +21,4 @@ tobj = "4.0.2"
 toml = "0.8.16"
 
 [profile.release]
-debug = true
+debug = false

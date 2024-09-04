@@ -16,9 +16,7 @@ impl OrthonormalBasis {
         let w = (&v).cross(&a).normalize();
         let u = (&v).cross(&w);
 
-        let transform = Matrix3::from_columns(
-            &[u, v, w]
-        );
+        let transform = Matrix3::from_columns(&[u, v, w]);
 
         Self { transform }
     }

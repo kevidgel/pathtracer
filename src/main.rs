@@ -14,7 +14,7 @@ use eframe::egui;
 use image::RgbImage;
 use std::sync::mpsc;
 
-use scenes::{cornell::Cornell, object::Object, lucy::Lucy, Scene};
+use scenes::{cornell::Cornell, lucy::Lucy, object::Object, Scene};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};

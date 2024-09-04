@@ -2,6 +2,7 @@ use na::{Point3, Vector3};
 
 use super::Scene;
 use crate::materials::dielectric::Dielectric;
+use crate::materials::disney::DisneyGlass;
 use crate::objects::sphere::Sphere;
 use crate::objects::{Instance, LightBuffer, PrimitiveBuffer};
 use crate::types::color::{Color, ColorOps};
@@ -17,13 +18,13 @@ impl Scene for Cornell {
     fn build_camera() -> Camera {
         Camera::new(
             1.0,
-            1024,
+            768,
             40.0,
             Point3::new(278.0, 278.0, -800.0),
             Point3::new(278.0, 278.0, 0.0),
             1.0,
             0.0,
-            128,
+            1024,
             16,
             Color::gray(0.0),
         )
@@ -34,12 +35,14 @@ impl Scene for Cornell {
         let mut lights = LightBuffer::new();
         let mut materials = MaterialRegistry::new();
 
+        let glass = DisneyGlass::new(Color::new(1.0, 1.0, 1.0), 0.3, 0.0, 1.5);
+        let old_glass = Dielectric::new(1.5_f32);
         materials.create_material("red", Lambertian::new(Color::new(0.65, 0.05, 0.05)));
         materials.create_material("mirror", Metal::new(Color::new(0.8, 0.85, 0.88), 0.05));
         materials.create_material("white", Lambertian::new(Color::gray(0.73)));
         materials.create_material("green", Lambertian::new(Color::new(0.12, 0.45, 0.15)));
         materials.create_material("light", Diffuse::new(Color::gray(15.0)));
-        materials.create_material("glass", Dielectric::new(1.5_f32));
+        materials.create_material("glass", glass);
 
         let q1 = Quad::new(
             &Point3::new(555.0, 0.0, 0.0),
@@ -119,9 +122,9 @@ impl Scene for Cornell {
 
         let mut sph = PrimitiveBuffer::new();
 
-        sph.add_sphere(sphere1);
+        sph.add_sphere(sphere1.clone());
 
-        let mut sph = Instance::from_obj(sph);
+        let sph = Instance::from_obj(sph);
 
         objects.add_instance(box1);
         objects.add_instance(sph);

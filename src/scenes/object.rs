@@ -1,8 +1,10 @@
 use na::{Point3, Vector3};
 
 use super::Scene;
+use crate::materials::disney::{
+    Disney, DisneyClearcoat, DisneyDiffuse, DisneyGlass, DisneyMetal, DisneySheen,
+};
 use crate::materials::lambertian::Lambertian;
-use crate::materials::disney::{DisneyClearcoat, DisneyDiffuse, DisneyMetal, DisneySheen};
 use crate::objects::quad_mesh::Quad;
 use crate::objects::{LightBuffer, PrimitiveBuffer};
 use crate::textures::{Checkered, Solid};
@@ -25,19 +27,24 @@ impl Scene for Object {
 
         let lite = Arc::new(Solid::new(Color::gray(0.6)));
         let dark = Arc::new(Solid::new(Color::gray(0.2)));
-        let check = Arc::new(Checkered::new(lite, dark, 19.0));
+        let blue = Arc::new(Solid::new(Color::new(0.8, 0.6, 0.2)));
+        let check = Arc::new(Checkered::new(lite, dark, 13.0));
 
         materials.create_material("ground", Metal::new(Color::gray(0.45), 0.5));
         materials.create_material("emit", Diffuse::new(Color::gray(20.0)));
         materials.create_material("check", Lambertian::new_texture(Some(check)));
         materials.create_material("mat1", Lambertian::new(Color::gray(0.2)));
-        materials.create_material("mat2", Lambertian::new(Color::new(0.3, 0.3, 0.8)));
+        materials.create_material("mat2", Lambertian::new(Color::new(0.8, 0.8, 0.3)));
 
         let sheen = DisneySheen::new(Color::new(0.3, 0.3, 0.8), 1.0, 0.2);
         let diffuse = DisneyDiffuse::new(Color::new(0.3, 0.3, 0.8), 1.0, 0.5);
         let clearcoat = DisneyClearcoat::new(1.0, 0.8);
         let metal = DisneyMetal::new(Color::new(0.3, 0.3, 0.8), 0.5, 0.3);
-        materials.create_material("test", metal);
+        let glass = DisneyGlass::new(Color::new(0.5, 0.5, 0.8), 0.1, 0.0, 1.2);
+        let disney = Disney::new(
+            blue, 0.5, 0.1, 0.0, 0.01, 0.2, 0.1, 0.8, 0.3, 0.1, 0.2, 0.5, 1.1,
+        );
+        materials.create_material("test", disney);
         // let ground = Sphere::new(
         //     Point3::new(0_f32, -1000.4_f32, 0_f32),
         //     1000_f32,
@@ -45,7 +52,7 @@ impl Scene for Object {
         // );
         // let ground = Quad::new(&Point3::new(-1000.0, -1.0, -1000.0), &Vector3::new(2000.0, 0.0, 0.0), &Vector3::new(0.0, 0.0, 2000.0), materials.get("mat2"));
 
-        let light = Sphere::new(Point3::new(-10.0, 15.0, 5.0), 10.0, materials.get("emit"));
+        let light = Sphere::new(Point3::new(-10.0, 15.0, 5.0), 5.0, materials.get("emit"));
 
         lights.add_sphere(light.clone());
         objects.add_sphere(light);
@@ -83,7 +90,7 @@ impl Scene for Object {
             defocus_angle,
             spp,
             max_depth,
-            Color::gray(0.0),
+            Color::gray(0.00),
         );
 
         camera

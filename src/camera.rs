@@ -213,26 +213,16 @@ impl Camera {
                 let mut buffer = buffer.lock().unwrap();
                 buffer.par_enumerate_pixels_mut().for_each(|(u, v, pixel)| {
                     let pixel_color: Color =
-                        image[(u + v * self.image_width as u32) as usize] / (samples as f32);
+                        image[(u + v * self.image_width) as usize] / (samples as f32);
                     *pixel = pixel_color.to_rgb();
                 });
                 //thread::sleep(Duration::from_millis(1));
             });
 
-        let mut buffer = buffer.lock().unwrap();
-        buffer.par_enumerate_pixels_mut().for_each(|(u, v, pixel)| {
-            let pixel_color: Color =
-                image[(u + v * self.image_width as u32) as usize] / (samples as f32);
-            *pixel = pixel_color.to_rgb();
+        let render_elapsed = now.elapsed().unwrap_or_else(|e| {
+            log::error!("Failed to get elapsed time: {}", e);
+            Duration::from_secs(0)
         });
-
-        let render_elapsed = match now.elapsed() {
-            Ok(elapsed) => elapsed,
-            Err(e) => {
-                log::error!("Failed to get elapsed time: {}", e);
-                Duration::from_secs(0)
-            }
-        };
 
         log::info!("Render time: {:?}", render_elapsed);
     }
@@ -299,41 +289,47 @@ impl Camera {
                 // If its purely specular, we don't need to do anything special to sample the ray
                 if material.is_specular() {
                     // Get incoming direction
-                    let w_in = material.scatter(rng, &w_out, &rec);
+                    let w_in = material.scatter(rng, &w_out, &rec).w_in;
 
                     // Get attenuation
-                    let attenuation = material.bsdf_evaluate(&w_out, &w_in, &rec); 
+                    let attenuation = material.bsdf_evaluate(&w_out, &w_in, &rec);
 
                     // Construct world-space ray
                     let mut ray_in = Ray::new(rec.p(), surface.to_world(&w_in));
 
                     // Get reflected radiance
-                    let l_reflected = &self.ray_color(rng, &mut ray_in, objects, lights, max_depth - 1);
- 
+                    let l_reflected =
+                        &self.ray_color(rng, &mut ray_in, objects, lights, max_depth - 1);
+
                     return l_emitted + attenuation.component_mul(&l_reflected);
                 }
 
                 // Sample incoming ray
                 // NOTE: We use mixture sampling here.
-                const BSDF_SAMPLE_PROBABILITY: f32 = 0.6_f32; // Probability of choosing BSDF sample
-                let (w_in, is_bsdf, world_sample) = if rng.gen_bool(BSDF_SAMPLE_PROBABILITY as f64) {
+                const BSDF_SAMPLE_PROBABILITY: f32 = 1.0_f32; // Probability of choosing BSDF sample
+                let (w_in, is_bsdf, w_in_world) = if rng.gen_bool(BSDF_SAMPLE_PROBABILITY as f64) {
                     // BSDF strategy
-                    let w_in = material.scatter(rng, &w_out, &rec);
-                    (w_in, true, surface.to_world(&w_in))
+                    let sample = material.scatter(rng, &w_out, &rec);
+                    (sample.w_in, true, surface.to_world(&sample.w_in))
                 } else {
                     // Area lights strategy
                     let light_sample = lights.sample(rng, &rec.p());
-                    (surface.to_local(&light_sample).normalize(), false, light_sample)
+                    (
+                        surface.to_local(&light_sample).normalize(),
+                        false,
+                        light_sample,
+                    )
                 };
 
                 // Evaluate pdf of both strategies
                 let scatter_pdf = material.scattering_pdf(&w_out, &w_in, &rec);
-                let light_pdf = lights.pdf(&Ray::new(rec.p(), world_sample));
-                
+                let light_pdf = lights.pdf(&Ray::new(rec.p(), w_in_world));
+
                 // Evaluate terms of l_reflected integrand
-                let pdf = BSDF_SAMPLE_PROBABILITY * scatter_pdf + (1.0 - BSDF_SAMPLE_PROBABILITY) * light_pdf;
+                let pdf = BSDF_SAMPLE_PROBABILITY * scatter_pdf
+                    + (1.0 - BSDF_SAMPLE_PROBABILITY) * light_pdf;
                 let bsdf = material.bsdf_evaluate(&w_out, &w_in, &rec);
-                let cos = w_in.normalize().y.clamp(0.0, 1.0);
+                let cos = w_in.y.abs();
 
                 // Russian Roulette
                 let throughput = (bsdf * cos) / pdf;
@@ -341,14 +337,17 @@ impl Camera {
                     // Much higher confidence in area light sampling
                     0.0
                 } else {
-                    1.0 - throughput.z.max(throughput.y.max(throughput.x)).clamp(0.0, 1.0)
+                    1.0 - throughput
+                        .z
+                        .max(throughput.y.max(throughput.x))
+                        .clamp(0.0, 1.0)
                 };
                 if weight.is_nan() || rng.gen_bool(weight as f64) {
                     return Color::gray(C);
                 }
 
                 // Construct world-space ray
-                let mut ray_in = Ray::new(rec.p(), world_sample);
+                let mut ray_in = Ray::new(rec.p(), w_in_world);
 
                 // Get l_incoming
                 let l_incoming = &self.ray_color(rng, &mut ray_in, objects, lights, max_depth - 1);

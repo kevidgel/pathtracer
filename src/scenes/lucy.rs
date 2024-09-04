@@ -17,7 +17,8 @@ impl Scene for Lucy {
         let mut objects = PrimitiveBuffer::new();
         let mut lights = LightBuffer::new();
         let mut materials = MaterialRegistry::new();
-        let meshes: Vec<TriMesh> = TriMesh::load_as_vec("/home/kevidgel/Downloads/sponza/sponza_tri.obj");
+        let meshes: Vec<TriMesh> =
+            TriMesh::load_as_vec("/home/kevidgel/Downloads/sponza/sponza_tri.obj");
 
         materials.create_material("ground", Metal::new(Color::new(0.3, 0.3, 0.8), 0.1));
         materials.create_material("emit", Diffuse::new(Color::new(255.0, 255.0, 255.0)));

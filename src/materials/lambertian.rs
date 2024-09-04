@@ -1,5 +1,4 @@
-use super::Material;
-use na::Vector3;
+use crate::materials::*;
 use crate::objects::HitRecord;
 use crate::textures::Solid;
 use crate::textures::TextureRef;
@@ -7,6 +6,7 @@ use crate::types::color::ColorOps;
 use crate::types::onb::OrthonormalBasis;
 use crate::types::pdf::{CosineWeightedHemispherePDF, SpherePDF, PDF};
 use crate::types::{color::Color, ray::Ray};
+use na::Vector3;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use std::sync::Arc;
@@ -38,7 +38,12 @@ impl Material for Lambertian {
         false
     }
 
-    fn scatter(&self, rng: &mut ThreadRng, _w_out: &Vector3<f32>, _rec: &HitRecord) -> Vector3<f32> {
+    fn scatter(
+        &self,
+        rng: &mut ThreadRng,
+        _w_out: &Vector3<f32>,
+        _rec: &HitRecord,
+    ) -> ScatterRecord {
         let r1: f32 = rng.gen_range(0.0..1.0);
         let r2: f32 = rng.gen_range(0.0..1.0);
 
@@ -47,14 +52,16 @@ impl Material for Lambertian {
         let z = phi.sin() * r2.sqrt();
         let y = (1.0 - r2).sqrt();
 
-        Vector3::new(x, y, z)
+        ScatterRecord {
+            w_in: Vector3::new(x, y, z),
+        }
     }
 
     fn bsdf_evaluate(&self, _w_out: &Vector3<f32>, _w_in: &Vector3<f32>, rec: &HitRecord) -> Color {
-        self.texture.value(rec.u(), rec.v(), &rec.p()) / std::f32::consts::PI 
+        self.texture.value(rec.u(), rec.v(), &rec.p()) / std::f32::consts::PI
     }
 
     fn scattering_pdf(&self, _w_out: &Vector3<f32>, w_in: &Vector3<f32>, _rec: &HitRecord) -> f32 {
-        &w_in.normalize().y / std::f32::consts::PI    
+        &w_in.y.clamp(0.0, 1.0) / std::f32::consts::PI
     }
 }

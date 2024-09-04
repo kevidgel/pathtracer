@@ -326,7 +326,6 @@ impl BVHBuilder {
             });
 
         let size = end - start;
-        // TODO: Set max leaf size.
         match size == 1 {
             true => BVHNode::new_leaf_as_box(start, size, bbox),
             false => {

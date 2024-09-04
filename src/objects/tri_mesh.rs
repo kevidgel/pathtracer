@@ -198,7 +198,6 @@ impl Hittable for Triangle {
         match ray.t_min <= uvt[2] && uvt[2] <= ray.t_max {
             true => {
                 // Interpolate
-                // TODO: Rewrite this using BLAS
                 let t = uvt[2];
                 let wuv = Vector3::new(1.0 - uvt[0] - uvt[1], uvt[0], uvt[1]);
                 let interpolated = self.bary_interpolate(&wuv);
@@ -252,10 +251,9 @@ impl Hittable for Triangle {
 
     fn pdf(&self, ray: &Ray) -> f32 {
         if self.hit(&mut ray.clone()).is_none() {
-            return 0.0
+            return 0.0;
         };
 
-        // TODO: this is repetitive
         let u = self.position(1) - self.position(0);
         let v = self.position(2) - self.position(0);
 
@@ -265,14 +263,13 @@ impl Hittable for Triangle {
     fn sample(&self, rng: &mut impl rand::Rng, origin: &Point3<f32>) -> Vector3<f32> {
         let s = rng.gen_range(0.0..1.0);
         let t = rng.gen_range(0.0..1.0);
-        
+
         let u = self.position(1) - self.position(0);
         let v = self.position(2) - self.position(0);
 
         let offset = if s + t <= 1.0 {
             s * u + t * v
-        }
-        else {
+        } else {
             (1.0 - s) * u + (1.0 - t) * v
         };
 

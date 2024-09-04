@@ -1,7 +1,6 @@
-use super::reflect_y;
-use crate::types::color::Color;
-use super::Material;
+use super::*;
 use crate::objects::HitRecord;
+use crate::types::color::Color;
 use crate::types::pdf::{SpherePDF, PDF};
 use na::Vector3;
 use rand::rngs::ThreadRng;
@@ -28,8 +27,13 @@ impl Material for Metal {
     fn is_specular(&self) -> bool {
         true
     }
-    
-    fn scatter(&self, rng: &mut ThreadRng, w_out: &Vector3<f32>, _rec: &HitRecord) -> Vector3<f32> {
+
+    fn scatter(
+        &self,
+        rng: &mut ThreadRng,
+        w_out: &Vector3<f32>,
+        _rec: &HitRecord,
+    ) -> ScatterRecord {
         let fuzz: Vector3<f32> = if self.fuzz > 0.0 {
             let sampler = SpherePDF::new();
             self.fuzz * sampler.generate(rng).normalize()
@@ -39,10 +43,15 @@ impl Material for Metal {
 
         let reflected = reflect_y(&-w_out.normalize()) + fuzz;
 
-        reflected
+        ScatterRecord { w_in: reflected }
     }
 
-    fn bsdf_evaluate(&self, _w_out: &Vector3<f32>, _w_in: &Vector3<f32>, _rec: &HitRecord) -> Color {
+    fn bsdf_evaluate(
+        &self,
+        _w_out: &Vector3<f32>,
+        _w_in: &Vector3<f32>,
+        _rec: &HitRecord,
+    ) -> Color {
         self.albedo
     }
 }
