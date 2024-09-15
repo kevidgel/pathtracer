@@ -52,7 +52,7 @@ impl Scene for Object {
         // );
         // let ground = Quad::new(&Point3::new(-1000.0, -1.0, -1000.0), &Vector3::new(2000.0, 0.0, 0.0), &Vector3::new(0.0, 0.0, 2000.0), materials.get("mat2"));
 
-        let light = Sphere::new(Point3::new(-10.0, 15.0, 5.0), 5.0, materials.get("emit"));
+        let light = Sphere::new(Point3::new(-10.0, 15.0, 5.0), 2.0, materials.get("emit"));
 
         lights.add_sphere(light.clone());
         objects.add_sphere(light);

@@ -150,6 +150,14 @@ impl Camera {
     pub fn get_width(&self) -> u32 {
         self.image_width
     }
+    
+    pub fn get_sqrt_spp(&self) -> u32 {
+        self.sqrt_spp
+    }
+    
+    pub fn get_max_depth(&self) -> u32 {
+        self.max_depth
+    }
 
     pub fn render(
         &self,
@@ -227,7 +235,7 @@ impl Camera {
         log::info!("Render time: {:?}", render_elapsed);
     }
 
-    fn get_ray(&self, rng: &mut ThreadRng, u: f32, v: f32, s_u: f32, s_v: f32) -> Ray {
+    pub fn get_ray(&self, rng: &mut ThreadRng, u: f32, v: f32, s_u: f32, s_v: f32) -> Ray {
         let sampler = SquareSampler::new((0.5, 0.5), 0.5);
         let disk_sampler = DiskSampler::unit();
 
@@ -320,6 +328,8 @@ impl Camera {
                         light_sample,
                     )
                 };
+                
+                let max_depth = if is_bsdf { max_depth } else { 2 };
 
                 // Evaluate pdf of both strategies
                 let scatter_pdf = material.scattering_pdf(&w_out, &w_in, &rec);
