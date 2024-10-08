@@ -22,20 +22,29 @@ Run:
 
 Scene configurations are located under `scenes`
 
+IMPLEMENTED:
+- All of raytracing.github.io
+- Flattened BVH
+- Disney BSDF
+- Loading of .obj files
+- Programmatic scene description (see /scenes)
+
 TODO:
-- light sampling seems incorrect?
+- .glb files
+- Use a thread pool to reduce thread spawn/destroy overhead
+- light sampling seems incorrect? (probably due to specular materials not being handled properly)
 - Disney material is a little incorrect
 - env maps
 - correct sampling for triangles
 - multiple importance sampling
-- Support loading/writing materials, objects, etc from config files
+- support some standard scene description format (.glb)
 
 TODO LATER: 
 - gui
 - make faster
 - better pathtracing methods
     - bidirectional
-    - ma la tang
+    - metropolis light transport
 
 TODO LATER LATER:
 - tests haha
